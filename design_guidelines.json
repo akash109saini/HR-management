@@ -1,0 +1,124 @@
+{
+  "theme": "light_and_dark",
+  "archetype": "Swiss & High-Contrast (Blue variant)",
+  "global_design_rules": [
+    "Fusion over Imitation: Borrow from minimalist Swiss posters and elite technical command centers.",
+    "Emotion First: The HRMS should feel precise, trustworthy, and calm, not chaotic.",
+    "Negative Space: Generous spacing (p-6, p-8) within cards to allow dense data to breathe.",
+    "Contrast: Sharp 1px borders, high contrast text against crisp white/dark backgrounds."
+  ],
+  "typography": {
+    "heading_font": "Outfit",
+    "body_font": "IBM Plex Sans",
+    "rules": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight font-bold",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-semibold",
+      "h3": "text-xl sm:text-2xl tracking-tight font-semibold",
+      "h4": "text-lg sm:text-xl font-medium",
+      "body": "text-base leading-relaxed",
+      "labels_overlines": "text-xs uppercase tracking-[0.2em] font-semibold text-muted-foreground",
+      "banned_fonts": ["Inter", "Roboto", "Open Sans", "Lato"]
+    }
+  },
+  "colors": {
+    "light": {
+      "background": "#FCFCFD",
+      "surface": "#FFFFFF",
+      "primary": "#002FA7", 
+      "primary_hover": "#00227A",
+      "text_primary": "#090E17",
+      "text_secondary": "#475569",
+      "border": "#E2E8F0",
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "danger": "#EF4444"
+    },
+    "dark": {
+      "background": "#050914",
+      "surface": "#0B1221",
+      "primary": "#3B82F6",
+      "primary_hover": "#60A5FA",
+      "text_primary": "#F8FAFC",
+      "text_secondary": "#94A3B8",
+      "border": "#1E293B",
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "danger": "#EF4444"
+    },
+    "rules": [
+      "No full-screen gradients. Use pure colors with 1px precise borders.",
+      "The 'Tinted Grey' Rule: All greys/neutrals must be slightly tinted with blue.",
+      "Ensure min 4.5:1 contrast for normal text."
+    ]
+  },
+  "layout_and_spacing": {
+    "strategy": "The Control Room Grid (For Dashboards / Analytics)",
+    "grid_classes": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+    "spacing_scale": "p-1, p-2, p-4, p-6, p-8, p-12",
+    "container_padding": "Cards and containers must use p-6 or p-8 internally.",
+    "alignment": "Mobile-first responsive grids. Start with grid-cols-1. F-pattern scanning: put key KPIs top-left."
+  },
+  "surfaces_and_styles": {
+    "dashboard_cards": "Flat background, 1px subtle border (border-border), no shadow. Hover: slight lift (-translate-y-1), subtle shadow (shadow-md).",
+    "headers_and_nav": "Crystal Glassmorphism for sticky headers: backdrop-blur-xl bg-background/70 (light) or bg-background/60 (dark) with a 1px delicate inner border.",
+    "borders": "Expose the skeleton for complex tables/lists using grid borders."
+  },
+  "components_and_interactions": {
+    "strategy": "Hybrid",
+    "ui_library": "Shadcn UI",
+    "customizations": "Remove default shadcn rounded corners. Use rounded-none or rounded-md max for a sharper, technical look. Override standard tab heights.",
+    "buttons": "Primary buttons use the brand blue. Include hover states (lighter/darker hue) and focus rings (focus:ring-2 focus:ring-primary/50 focus:outline-none).",
+    "forms": "Use Shadcn Input, Select, Checkbox. Left-aligned labels.",
+    "motion": "Fast, crisp micro-interactions. transition-all duration-200 ease-in-out."
+  },
+  "icons_and_assets": {
+    "icon_library": "@phosphor-icons/react",
+    "icon_style": "Duotone or regular weight depending on emphasis. Crisp, geometric.",
+    "charts": "recharts or Shadcn chart components. Use monochromatic blue scales or distinct accessible palette for complex data."
+  },
+  "testing": {
+    "rules": [
+      "All interactive and key informational elements MUST include a data-testid attribute.",
+      "Use kebab-case, role-based naming (e.g., data-testid='login-submit-button', data-testid='clock-in-btn')."
+    ]
+  },
+  "media_and_images": [
+    {
+      "category": "login_background",
+      "description": "Abstract blue and dark geometric shapes pattern for the auth page background.",
+      "url": "https://images.unsplash.com/photo-1770321428577-4446e5cb7bab?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NjZ8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGdlb21ldHJpYyUyMGJsdWUlMjBwYXR0ZXJuJTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3NzUwMzg4NzB8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Abstract Blue Pattern"
+    },
+    {
+      "category": "company_logo_placeholder",
+      "description": "Minimalist display of modern abstract company logo.",
+      "url": "https://images.pexels.com/photos/15863044/pexels-photo-15863044.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "Modern Tech Logo"
+    },
+    {
+      "category": "employee_avatar_1",
+      "description": "Portrait of a diverse team of colleagues/employee.",
+      "url": "https://images.pexels.com/photos/5945343/pexels-photo-5945343.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "Employee Portrait 1"
+    },
+    {
+      "category": "employee_avatar_2",
+      "description": "Smiling young professional.",
+      "url": "https://images.pexels.com/photos/9489396/pexels-photo-9489396.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "Employee Portrait 2"
+    },
+    {
+      "category": "team_overview_image",
+      "description": "Four business professionals standing together indoors.",
+      "url": "https://images.unsplash.com/photo-1758518731296-20e24e58846f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNTl8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBkaXZlcnNlJTIwZW1wbG95ZWUlMjBwb3J0cmFpdHN8ZW58MHx8fHwxNzc1MDM4ODY2fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Diverse Professional Team"
+    }
+  ],
+  "specific_functionality_instructions": {
+    "login_first_time": "Provide a smooth first-time login flow with mandatory password change and basic onboarding. Render the abstract pattern background.",
+    "super_admin_dashboard": "Focus on tenant management and billing metrics. Use North Star Metrics on top left.",
+    "hr_manager_dashboard": "Provide actionable widgets for pending leaves, recruitment pipeline, and punch corrections.",
+    "employee_dashboard": "Clean self-service portal. Display quick punch-in/out CTA, recent announcements, and leave balance summary.",
+    "ai_performance_summaries": "Display generative insights using an 'AI summary card' with distinctive subtle gradient or glow border (The Tracing Beam effect) to distinguish it from standard data."
+  }
+}
