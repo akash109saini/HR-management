@@ -351,6 +351,420 @@ class HRMSAPITester:
         
         return success1 and success2 and success3
 
+    def test_shifts_endpoints(self):
+        """Test shift management endpoints (HR Manager only)"""
+        if not self.current_user or self.current_user.get('role') != 'hr_manager':
+            print("⚠️  Skipping shifts tests - not HR manager")
+            return True
+
+        # Get shifts
+        success, response = self.run_test(
+            "Get Shifts",
+            "GET",
+            "shifts",
+            200
+        )
+        if success:
+            shifts = response if isinstance(response, list) else response.get('shifts', [])
+            print(f"   Found {len(shifts)} shifts")
+            
+            # Test create shift
+            test_shift = {
+                "name": f"Test Shift {datetime.now().strftime('%H%M%S')}",
+                "start_time": "09:00",
+                "end_time": "17:00",
+                "description": "Test shift for API testing"
+            }
+            create_success, create_response = self.run_test(
+                "Create Shift",
+                "POST",
+                "shifts",
+                201,
+                data=test_shift
+            )
+            
+            if create_success:
+                shift_id = create_response.get('id')
+                print(f"   Created shift with ID: {shift_id}")
+                
+                # Test update shift
+                update_data = {
+                    "name": test_shift["name"] + " Updated",
+                    "start_time": "08:00",
+                    "end_time": "16:00",
+                    "description": "Updated description"
+                }
+                update_success, _ = self.run_test(
+                    "Update Shift",
+                    "PUT",
+                    f"shifts/{shift_id}",
+                    200,
+                    data=update_data
+                )
+                
+                # Test delete shift
+                if update_success:
+                    delete_success, _ = self.run_test(
+                        "Delete Shift",
+                        "DELETE",
+                        f"shifts/{shift_id}",
+                        200
+                    )
+                    return delete_success
+                return update_success
+            return create_success
+        return success
+
+    def test_designations_endpoints(self):
+        """Test designation management endpoints (HR Manager only)"""
+        if not self.current_user or self.current_user.get('role') != 'hr_manager':
+            print("⚠️  Skipping designations tests - not HR manager")
+            return True
+
+        # Get designations
+        success, response = self.run_test(
+            "Get Designations",
+            "GET",
+            "designations",
+            200
+        )
+        if success:
+            designations = response if isinstance(response, list) else response.get('designations', [])
+            print(f"   Found {len(designations)} designations")
+            
+            # Test create designation
+            test_designation = {
+                "name": f"Test Designation {datetime.now().strftime('%H%M%S')}",
+                "description": "Test designation for API testing",
+                "level": "Mid-Level"
+            }
+            create_success, create_response = self.run_test(
+                "Create Designation",
+                "POST",
+                "designations",
+                201,
+                data=test_designation
+            )
+            
+            if create_success:
+                designation_id = create_response.get('id')
+                print(f"   Created designation with ID: {designation_id}")
+                
+                # Test update designation
+                update_data = {
+                    "name": test_designation["name"] + " Updated",
+                    "description": "Updated description",
+                    "level": "Senior-Level"
+                }
+                update_success, _ = self.run_test(
+                    "Update Designation",
+                    "PUT",
+                    f"designations/{designation_id}",
+                    200,
+                    data=update_data
+                )
+                
+                # Test delete designation
+                if update_success:
+                    delete_success, _ = self.run_test(
+                        "Delete Designation",
+                        "DELETE",
+                        f"designations/{designation_id}",
+                        200
+                    )
+                    return delete_success
+                return update_success
+            return create_success
+        return success
+
+    def test_salary_slabs_endpoints(self):
+        """Test salary slab management endpoints (HR Manager only)"""
+        if not self.current_user or self.current_user.get('role') != 'hr_manager':
+            print("⚠️  Skipping salary slabs tests - not HR manager")
+            return True
+
+        # Get salary slabs
+        success, response = self.run_test(
+            "Get Salary Slabs",
+            "GET",
+            "salary-slabs",
+            200
+        )
+        if success:
+            slabs = response if isinstance(response, list) else response.get('salary_slabs', [])
+            print(f"   Found {len(slabs)} salary slabs")
+            
+            # Test create salary slab
+            test_slab = {
+                "name": f"Test Slab {datetime.now().strftime('%H%M%S')}",
+                "min_salary": 30000,
+                "max_salary": 50000,
+                "description": "Test salary slab for API testing"
+            }
+            create_success, create_response = self.run_test(
+                "Create Salary Slab",
+                "POST",
+                "salary-slabs",
+                201,
+                data=test_slab
+            )
+            
+            if create_success:
+                slab_id = create_response.get('id')
+                print(f"   Created salary slab with ID: {slab_id}")
+                
+                # Test update salary slab
+                update_data = {
+                    "name": test_slab["name"] + " Updated",
+                    "min_salary": 35000,
+                    "max_salary": 55000,
+                    "description": "Updated description"
+                }
+                update_success, _ = self.run_test(
+                    "Update Salary Slab",
+                    "PUT",
+                    f"salary-slabs/{slab_id}",
+                    200,
+                    data=update_data
+                )
+                
+                # Test delete salary slab
+                if update_success:
+                    delete_success, _ = self.run_test(
+                        "Delete Salary Slab",
+                        "DELETE",
+                        f"salary-slabs/{slab_id}",
+                        200
+                    )
+                    return delete_success
+                return update_success
+            return create_success
+        return success
+
+    def test_holidays_endpoints(self):
+        """Test holiday management endpoints (HR Manager only)"""
+        if not self.current_user or self.current_user.get('role') != 'hr_manager':
+            print("⚠️  Skipping holidays tests - not HR manager")
+            return True
+
+        # Get holidays
+        success, response = self.run_test(
+            "Get Holidays",
+            "GET",
+            "holidays",
+            200
+        )
+        if success:
+            holidays = response if isinstance(response, list) else response.get('holidays', [])
+            print(f"   Found {len(holidays)} holidays")
+            
+            # Test create holiday
+            test_holiday = {
+                "name": f"Test Holiday {datetime.now().strftime('%H%M%S')}",
+                "date": "2024-12-25",
+                "description": "Test holiday for API testing",
+                "type": "public"
+            }
+            create_success, create_response = self.run_test(
+                "Create Holiday",
+                "POST",
+                "holidays",
+                201,
+                data=test_holiday
+            )
+            
+            if create_success:
+                holiday_id = create_response.get('id')
+                print(f"   Created holiday with ID: {holiday_id}")
+                
+                # Test update holiday
+                update_data = {
+                    "name": test_holiday["name"] + " Updated",
+                    "date": "2024-12-26",
+                    "description": "Updated description",
+                    "type": "optional"
+                }
+                update_success, _ = self.run_test(
+                    "Update Holiday",
+                    "PUT",
+                    f"holidays/{holiday_id}",
+                    200,
+                    data=update_data
+                )
+                
+                # Test delete holiday
+                if update_success:
+                    delete_success, _ = self.run_test(
+                        "Delete Holiday",
+                        "DELETE",
+                        f"holidays/{holiday_id}",
+                        200
+                    )
+                    return delete_success
+                return update_success
+            return create_success
+        return success
+
+    def test_terminations_endpoints(self):
+        """Test termination management endpoints (HR Manager only)"""
+        if not self.current_user or self.current_user.get('role') != 'hr_manager':
+            print("⚠️  Skipping terminations tests - not HR manager")
+            return True
+
+        # Get terminations
+        success, response = self.run_test(
+            "Get Terminations",
+            "GET",
+            "terminations",
+            200
+        )
+        if success:
+            terminations = response if isinstance(response, list) else response.get('terminations', [])
+            print(f"   Found {len(terminations)} terminations")
+            
+            # Test create termination
+            test_termination = {
+                "employee_id": "EMP001",
+                "termination_type": "voluntary",
+                "termination_date": "2024-12-31",
+                "description": "Test termination for API testing",
+                "reason": "Testing purposes"
+            }
+            create_success, create_response = self.run_test(
+                "Create Termination",
+                "POST",
+                "terminations",
+                201,
+                data=test_termination
+            )
+            
+            if create_success:
+                termination_id = create_response.get('id')
+                print(f"   Created termination with ID: {termination_id}")
+                
+                # Test update termination
+                update_data = {
+                    "employee_id": "EMP001",
+                    "termination_type": "involuntary",
+                    "termination_date": "2024-12-30",
+                    "description": "Updated description",
+                    "reason": "Updated reason"
+                }
+                update_success, _ = self.run_test(
+                    "Update Termination",
+                    "PUT",
+                    f"terminations/{termination_id}",
+                    200,
+                    data=update_data
+                )
+                
+                # Test delete termination
+                if update_success:
+                    delete_success, _ = self.run_test(
+                        "Delete Termination",
+                        "DELETE",
+                        f"terminations/{termination_id}",
+                        200
+                    )
+                    return delete_success
+                return update_success
+            return create_success
+        return success
+
+    def test_resignations_endpoints(self):
+        """Test resignation management endpoints (HR Manager only)"""
+        if not self.current_user or self.current_user.get('role') != 'hr_manager':
+            print("⚠️  Skipping resignations tests - not HR manager")
+            return True
+
+        # Get resignations
+        success, response = self.run_test(
+            "Get Resignations",
+            "GET",
+            "resignations",
+            200
+        )
+        if success:
+            resignations = response if isinstance(response, list) else response.get('resignations', [])
+            print(f"   Found {len(resignations)} resignations")
+            
+            # Test create resignation
+            test_resignation = {
+                "employee_id": "EMP001",
+                "resignation_date": "2024-12-31",
+                "last_working_day": "2025-01-31",
+                "reason": "Test resignation for API testing",
+                "status": "pending"
+            }
+            create_success, create_response = self.run_test(
+                "Create Resignation",
+                "POST",
+                "resignations",
+                201,
+                data=test_resignation
+            )
+            
+            if create_success:
+                resignation_id = create_response.get('id')
+                print(f"   Created resignation with ID: {resignation_id}")
+                
+                # Test update resignation
+                update_data = {
+                    "employee_id": "EMP001",
+                    "resignation_date": "2024-12-30",
+                    "last_working_day": "2025-01-30",
+                    "reason": "Updated reason",
+                    "status": "approved"
+                }
+                update_success, _ = self.run_test(
+                    "Update Resignation",
+                    "PUT",
+                    f"resignations/{resignation_id}",
+                    200,
+                    data=update_data
+                )
+                
+                # Test delete resignation
+                if update_success:
+                    delete_success, _ = self.run_test(
+                        "Delete Resignation",
+                        "DELETE",
+                        f"resignations/{resignation_id}",
+                        200
+                    )
+                    return delete_success
+                return update_success
+            return create_success
+        return success
+
+    def test_notifications_endpoints(self):
+        """Test notification endpoints"""
+        if not self.current_user:
+            print("⚠️  Skipping notifications tests - not logged in")
+            return True
+
+        # Get notifications
+        success, response = self.run_test(
+            "Get Notifications",
+            "GET",
+            "notifications",
+            200
+        )
+        if success:
+            notifications = response.get('notifications', []) if isinstance(response, dict) else []
+            unread_count = response.get('unread_count', 0) if isinstance(response, dict) else 0
+            print(f"   Found {len(notifications)} notifications ({unread_count} unread)")
+            
+            # Test mark all read
+            mark_all_success, _ = self.run_test(
+                "Mark All Notifications Read",
+                "POST",
+                "notifications/read-all",
+                200
+            )
+            return mark_all_success
+        return success
+
 def main():
     print("🚀 Starting HRMS API Testing...")
     tester = HRMSAPITester()
@@ -391,6 +805,16 @@ def main():
     tester.test_attendance_endpoints()
     tester.test_leave_endpoints()
     tester.test_export_endpoints()
+    
+    # Test new HR modules (6 new endpoints)
+    tester.test_shifts_endpoints()
+    tester.test_designations_endpoints()
+    tester.test_salary_slabs_endpoints()
+    tester.test_holidays_endpoints()
+    tester.test_terminations_endpoints()
+    tester.test_resignations_endpoints()
+    tester.test_notifications_endpoints()
+    
     tester.test_profile_endpoints()
     
     # Test logout

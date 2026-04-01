@@ -14,6 +14,13 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ExportController;
+use App\Http\Controllers\ShiftController;
+use App\Http\Controllers\DesignationController;
+use App\Http\Controllers\SalarySlabController;
+use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\TerminationController;
+use App\Http\Controllers\ResignationController;
+use App\Http\Controllers\NotificationController;
 
 // Health check
 Route::get('/', fn() => response()->json(['message' => 'HRMS API v1.0 (Laravel)']));
@@ -42,6 +49,7 @@ Route::middleware('jwt.auth')->group(function () {
     // Employees
     Route::get('/employees', [EmployeeController::class, 'index']);
     Route::post('/employees', [EmployeeController::class, 'store']);
+    Route::get('/employees/suggest-id', [EmployeeController::class, 'suggestId']);
     Route::get('/employees/{employeeId}', [EmployeeController::class, 'show']);
     Route::put('/employees/{employeeId}', [EmployeeController::class, 'update']);
 
@@ -100,4 +108,45 @@ Route::middleware('jwt.auth')->group(function () {
     Route::get('/export/attendance', [ExportController::class, 'exportAttendance']);
     Route::get('/export/payroll', [ExportController::class, 'exportPayroll']);
     Route::get('/export/employees', [ExportController::class, 'exportEmployees']);
+
+    // Shifts
+    Route::get('/shifts', [ShiftController::class, 'index']);
+    Route::post('/shifts', [ShiftController::class, 'store']);
+    Route::put('/shifts/{id}', [ShiftController::class, 'update']);
+    Route::delete('/shifts/{id}', [ShiftController::class, 'destroy']);
+
+    // Designations
+    Route::get('/designations', [DesignationController::class, 'index']);
+    Route::post('/designations', [DesignationController::class, 'store']);
+    Route::put('/designations/{id}', [DesignationController::class, 'update']);
+    Route::delete('/designations/{id}', [DesignationController::class, 'destroy']);
+
+    // Salary Slabs
+    Route::get('/salary-slabs', [SalarySlabController::class, 'index']);
+    Route::post('/salary-slabs', [SalarySlabController::class, 'store']);
+    Route::put('/salary-slabs/{id}', [SalarySlabController::class, 'update']);
+    Route::delete('/salary-slabs/{id}', [SalarySlabController::class, 'destroy']);
+
+    // Holidays
+    Route::get('/holidays', [HolidayController::class, 'index']);
+    Route::post('/holidays', [HolidayController::class, 'store']);
+    Route::put('/holidays/{id}', [HolidayController::class, 'update']);
+    Route::delete('/holidays/{id}', [HolidayController::class, 'destroy']);
+
+    // Terminations
+    Route::get('/terminations', [TerminationController::class, 'index']);
+    Route::post('/terminations', [TerminationController::class, 'store']);
+    Route::put('/terminations/{id}', [TerminationController::class, 'update']);
+    Route::delete('/terminations/{id}', [TerminationController::class, 'destroy']);
+
+    // Resignations
+    Route::get('/resignations', [ResignationController::class, 'index']);
+    Route::post('/resignations', [ResignationController::class, 'store']);
+    Route::put('/resignations/{id}', [ResignationController::class, 'update']);
+    Route::delete('/resignations/{id}', [ResignationController::class, 'destroy']);
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::put('/notifications/{id}/read', [NotificationController::class, 'markRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
 });

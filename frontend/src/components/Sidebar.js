@@ -5,7 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import {
   LayoutDashboard, Building2, Users, Clock, CalendarDays, DollarSign,
   Briefcase, Star, Megaphone, LogOut, Sun, Moon, ChevronLeft, ChevronRight, Menu, X,
-  Building, UserCircle, FileDown
+  Building, UserCircle, FileDown, Timer, Award, Layers, Calendar, UserX, UserMinus
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
@@ -19,11 +19,17 @@ const navConfig = {
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Employees', path: '/employees', icon: Users },
     { label: 'Departments', path: '/departments', icon: Building },
+    { label: 'Designations', path: '/designations', icon: Award },
+    { label: 'Shifts', path: '/shifts', icon: Timer },
+    { label: 'Salary Slabs', path: '/salary-slabs', icon: Layers },
     { label: 'Attendance', path: '/attendance', icon: Clock },
     { label: 'Leave Mgmt', path: '/leave-management', icon: CalendarDays },
+    { label: 'Holidays', path: '/holidays', icon: Calendar },
     { label: 'Payroll', path: '/payroll', icon: DollarSign },
     { label: 'Recruitment', path: '/recruitment', icon: Briefcase },
     { label: 'Performance', path: '/performance', icon: Star },
+    { label: 'Terminations', path: '/terminations', icon: UserX },
+    { label: 'Resignations', path: '/resignations', icon: UserMinus },
     { label: 'Announcements', path: '/announcements', icon: Megaphone },
     { label: 'Profile', path: '/profile', icon: UserCircle },
   ],

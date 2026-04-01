@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
+import NotificationBell from './NotificationBell';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function DashboardLayout({ children }) {
@@ -20,13 +21,14 @@ export default function DashboardLayout({ children }) {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
         <header className="h-14 flex items-center justify-between px-4 md:px-6 border-b border-border bg-card/70 backdrop-blur-xl flex-shrink-0">
-          <div className="md:hidden w-10" /> {/* spacer for mobile menu button */}
+          <div className="md:hidden w-10" />
           <div className="hidden md:block">
             <span className="text-xs uppercase tracking-[0.2em] font-semibold text-muted-foreground">
               {roleLabel[user?.role] || 'Dashboard'}
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <div className="text-right">
               <p className="text-sm font-medium text-foreground leading-none" data-testid="user-name-display">
                 {user?.name || 'User'}

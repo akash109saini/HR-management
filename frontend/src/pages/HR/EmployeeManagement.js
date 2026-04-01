@@ -13,17 +13,28 @@ import { Plus, Search, UserPlus, FileDown } from 'lucide-react';
 
 export default function EmployeeManagement() {
   const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [designations, setDesignations] = useState([]);
+  const [shifts, setShifts] = useState([]);
+  const [suggestedId, setSuggestedId] = useState('');
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState('');
-  const [form, setForm] = useState({ name: '', email: '', mobile: '', department: '', position: '', salary: 0, role: 'employee' });
+  const [form, setForm] = useState({ name: '', email: '', mobile: '', department: '', designation: '', salary: 0, shift: '', joining_date: '', bank_name: '', account_number: '', ifsc_code: '', account_holder: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const fetchEmployees = async () => {
     try {
-      const { data } = await api.get('/employees');
-      setEmployees(data);
+      const [empRes, deptRes, desigRes, shiftRes, idRes] = await Promise.all([
+        api.get('/employees'), api.get('/departments'), api.get('/designations'),
+        api.get('/shifts'), api.get('/employees/suggest-id')
+      ]);
+      setEmployees(empRes.data);
+      setDepartments(deptRes.data);
+      setDesignations(desigRes.data);
+      setShifts(shiftRes.data);
+      setSuggestedId(idRes.data.suggested_id || '');
     } catch { /* ignore */ }
     setLoading(false);
   };
@@ -36,7 +47,7 @@ export default function EmployeeManagement() {
     try {
       const { data } = await api.post('/employees', form);
       setSuccess(`Employee created! ID: ${data.employee_id}. Initial password: ${data.initial_password}`);
-      setForm({ name: '', email: '', mobile: '', department: '', position: '', salary: 0, role: 'employee' });
+      setForm({ name: '', email: '', mobile: '', department: '', designation: '', salary: 0, shift: '', joining_date: '', bank_name: '', account_number: '', ifsc_code: '', account_holder: '' });
       fetchEmployees();
     } catch (err) {
       setError(formatApiError(err.response?.data?.detail));
@@ -76,51 +87,58 @@ export default function EmployeeManagement() {
             <DialogTrigger asChild>
               <Button data-testid="add-employee-btn"><UserPlus size={16} className="mr-2" />Add Employee</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>Add New Employee</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 {error && <div className="p-2 text-sm text-destructive bg-destructive/10 rounded-md">{error}</div>}
                 {success && <div className="p-2 text-sm text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 rounded-md" data-testid="employee-create-success">{success}</div>}
+
+                <p className="text-xs text-muted-foreground">Suggested Employee ID: <span className="font-mono font-medium text-primary">{suggestedId}</span></p>
+
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Full Name</Label>
-                    <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="John Smith" data-testid="emp-name-input" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="john@company.com" data-testid="emp-email-input" />
-                  </div>
+                  <div className="space-y-2"><Label>Full Name</Label><Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="John Smith" data-testid="emp-name-input" /></div>
+                  <div className="space-y-2"><Label>Email</Label><Input value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="john@company.com" data-testid="emp-email-input" /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Mobile (initial password)</Label>
-                    <Input value={form.mobile} onChange={e => setForm({...form, mobile: e.target.value})} placeholder="9876543210" data-testid="emp-mobile-input" />
+                  <div className="space-y-2"><Label>Mobile (initial password)</Label><Input value={form.mobile} onChange={e => setForm({...form, mobile: e.target.value})} placeholder="9876543210" data-testid="emp-mobile-input" /></div>
+                  <div className="space-y-2"><Label>Joining Date</Label><Input type="date" value={form.joining_date} onChange={e => setForm({...form, joining_date: e.target.value})} data-testid="emp-joining-input" /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Department</Label>
+                    <Select value={form.department} onValueChange={v => setForm({...form, department: v})}>
+                      <SelectTrigger data-testid="emp-dept-select"><SelectValue placeholder="Select department" /></SelectTrigger>
+                      <SelectContent>{departments.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}</SelectContent>
+                    </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Role</Label>
-                    <Select value={form.role} onValueChange={v => setForm({...form, role: v})}>
-                      <SelectTrigger data-testid="emp-role-select"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="employee">Employee</SelectItem>
-                        <SelectItem value="hr_manager">HR Manager</SelectItem>
-                      </SelectContent>
+                  <div className="space-y-2"><Label>Designation</Label>
+                    <Select value={form.designation} onValueChange={v => setForm({...form, designation: v})}>
+                      <SelectTrigger data-testid="emp-desig-select"><SelectValue placeholder="Select designation" /></SelectTrigger>
+                      <SelectContent>{designations.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Department</Label>
-                    <Input value={form.department} onChange={e => setForm({...form, department: e.target.value})} placeholder="Engineering" data-testid="emp-dept-input" />
+                  <div className="space-y-2"><Label>Shift Timing</Label>
+                    <Select value={form.shift} onValueChange={v => setForm({...form, shift: v})}>
+                      <SelectTrigger data-testid="emp-shift-select"><SelectValue placeholder="Select shift" /></SelectTrigger>
+                      <SelectContent>{shifts.map(s => <SelectItem key={s.id} value={s.name}>{s.name} ({s.start_time} - {s.end_time})</SelectItem>)}</SelectContent>
+                    </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Position</Label>
-                    <Input value={form.position} onChange={e => setForm({...form, position: e.target.value})} placeholder="Senior Developer" data-testid="emp-position-input" />
+                  <div className="space-y-2"><Label>Salary (Annual)</Label><Input type="number" value={form.salary} onChange={e => setForm({...form, salary: parseFloat(e.target.value) || 0})} data-testid="emp-salary-input" /></div>
+                </div>
+
+                <div className="border-t border-border pt-4">
+                  <h4 className="text-sm font-semibold mb-3">Bank Details</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Bank Name</Label><Input value={form.bank_name} onChange={e => setForm({...form, bank_name: e.target.value})} placeholder="State Bank" data-testid="emp-bank-input" /></div>
+                    <div className="space-y-2"><Label>Account Number</Label><Input value={form.account_number} onChange={e => setForm({...form, account_number: e.target.value})} placeholder="1234567890" data-testid="emp-account-input" /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mt-3">
+                    <div className="space-y-2"><Label>IFSC Code</Label><Input value={form.ifsc_code} onChange={e => setForm({...form, ifsc_code: e.target.value})} placeholder="SBIN0001234" data-testid="emp-ifsc-input" /></div>
+                    <div className="space-y-2"><Label>Account Holder</Label><Input value={form.account_holder} onChange={e => setForm({...form, account_holder: e.target.value})} placeholder="John Smith" /></div>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Salary (Annual)</Label>
-                  <Input type="number" value={form.salary} onChange={e => setForm({...form, salary: parseFloat(e.target.value) || 0})} data-testid="emp-salary-input" />
-                </div>
+
                 <Button onClick={handleCreate} className="w-full" data-testid="submit-create-employee-btn">Create Employee</Button>
               </div>
             </DialogContent>
@@ -143,8 +161,8 @@ export default function EmployeeManagement() {
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Department</TableHead>
-                    <TableHead>Position</TableHead>
-                    <TableHead>Role</TableHead>
+                    <TableHead>Designation</TableHead>
+                    <TableHead>Shift</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -159,8 +177,8 @@ export default function EmployeeManagement() {
                       <TableCell className="font-medium">{emp.name}</TableCell>
                       <TableCell className="text-muted-foreground">{emp.email}</TableCell>
                       <TableCell>{emp.department}</TableCell>
-                      <TableCell>{emp.position}</TableCell>
-                      <TableCell><Badge variant="outline">{emp.role}</Badge></TableCell>
+                      <TableCell>{emp.designation || emp.position || '-'}</TableCell>
+                      <TableCell>{emp.shift || '-'}</TableCell>
                       <TableCell><Badge variant={emp.status === 'active' ? 'default' : 'secondary'}>{emp.status}</Badge></TableCell>
                     </TableRow>
                   ))}

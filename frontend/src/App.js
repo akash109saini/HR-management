@@ -18,6 +18,12 @@ import RecruitmentPage from './pages/HR/RecruitmentPage';
 import PerformancePage from './pages/HR/PerformancePage';
 import HRAnnouncements from './pages/HR/Announcements';
 import DepartmentManagement from './pages/HR/DepartmentManagement';
+import ShiftManagement from './pages/HR/ShiftManagement';
+import DesignationManagement from './pages/HR/DesignationManagement';
+import SalarySlabManagement from './pages/HR/SalarySlabManagement';
+import HolidayManagement from './pages/HR/HolidayManagement';
+import TerminationManagement from './pages/HR/TerminationManagement';
+import ResignationManagement from './pages/HR/ResignationManagement';
 import EmpDashboard from './pages/Employee/Dashboard';
 import MyAttendance from './pages/Employee/MyAttendance';
 import MyLeaves from './pages/Employee/MyLeaves';
@@ -75,11 +81,17 @@ function AppRoutes() {
       {/* HR Manager */}
       <Route path="/employees" element={<ProtectedRoute><EmployeeManagement /></ProtectedRoute>} />
       <Route path="/departments" element={<ProtectedRoute><DepartmentManagement /></ProtectedRoute>} />
+      <Route path="/designations" element={<ProtectedRoute><DesignationManagement /></ProtectedRoute>} />
+      <Route path="/shifts" element={<ProtectedRoute><ShiftManagement /></ProtectedRoute>} />
+      <Route path="/salary-slabs" element={<ProtectedRoute><SalarySlabManagement /></ProtectedRoute>} />
+      <Route path="/holidays" element={<ProtectedRoute><HolidayManagement /></ProtectedRoute>} />
       <Route path="/attendance" element={<ProtectedRoute><AttendanceMgmt /></ProtectedRoute>} />
       <Route path="/leave-management" element={<ProtectedRoute><LeaveMgmt /></ProtectedRoute>} />
       <Route path="/payroll" element={<ProtectedRoute><PayrollPage /></ProtectedRoute>} />
       <Route path="/recruitment" element={<ProtectedRoute><RecruitmentPage /></ProtectedRoute>} />
       <Route path="/performance" element={<ProtectedRoute><PerformancePage /></ProtectedRoute>} />
+      <Route path="/terminations" element={<ProtectedRoute><TerminationManagement /></ProtectedRoute>} />
+      <Route path="/resignations" element={<ProtectedRoute><ResignationManagement /></ProtectedRoute>} />
 
       {/* Profile - accessible to all roles */}
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
