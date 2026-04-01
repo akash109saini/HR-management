@@ -17,11 +17,13 @@ import PayrollPage from './pages/HR/PayrollPage';
 import RecruitmentPage from './pages/HR/RecruitmentPage';
 import PerformancePage from './pages/HR/PerformancePage';
 import HRAnnouncements from './pages/HR/Announcements';
+import DepartmentManagement from './pages/HR/DepartmentManagement';
 import EmpDashboard from './pages/Employee/Dashboard';
 import MyAttendance from './pages/Employee/MyAttendance';
 import MyLeaves from './pages/Employee/MyLeaves';
 import MyPayslips from './pages/Employee/MyPayslips';
 import Announcements from './pages/Employee/Announcements';
+import ProfilePage from './pages/ProfilePage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -72,11 +74,15 @@ function AppRoutes() {
 
       {/* HR Manager */}
       <Route path="/employees" element={<ProtectedRoute><EmployeeManagement /></ProtectedRoute>} />
+      <Route path="/departments" element={<ProtectedRoute><DepartmentManagement /></ProtectedRoute>} />
       <Route path="/attendance" element={<ProtectedRoute><AttendanceMgmt /></ProtectedRoute>} />
       <Route path="/leave-management" element={<ProtectedRoute><LeaveMgmt /></ProtectedRoute>} />
       <Route path="/payroll" element={<ProtectedRoute><PayrollPage /></ProtectedRoute>} />
       <Route path="/recruitment" element={<ProtectedRoute><RecruitmentPage /></ProtectedRoute>} />
       <Route path="/performance" element={<ProtectedRoute><PerformancePage /></ProtectedRoute>} />
+
+      {/* Profile - accessible to all roles */}
+      <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
       {/* Shared - Announcements (HR can manage, Employee can view) */}
       <Route path="/announcements" element={

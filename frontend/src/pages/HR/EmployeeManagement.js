@@ -9,7 +9,7 @@ import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Plus, Search, UserPlus } from 'lucide-react';
+import { Plus, Search, UserPlus, FileDown } from 'lucide-react';
 
 export default function EmployeeManagement() {
   const [employees, setEmployees] = useState([]);
@@ -58,7 +58,21 @@ export default function EmployeeManagement() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight font-['Outfit']">Employees</h1>
             <p className="text-sm text-muted-foreground mt-1">Manage workforce ({employees.length} total)</p>
           </div>
-          <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) { setError(''); setSuccess(''); } }}>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={async () => {
+              try {
+                const response = await api.get('/export/employees', { responseType: 'blob' });
+                const url = window.URL.createObjectURL(new Blob([response.data]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'employees_export.csv';
+                link.click();
+                window.URL.revokeObjectURL(url);
+              } catch { /* ignore */ }
+            }} data-testid="export-employees-csv-btn">
+              <FileDown size={16} className="mr-2" />Export
+            </Button>
+            <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) { setError(''); setSuccess(''); } }}>
             <DialogTrigger asChild>
               <Button data-testid="add-employee-btn"><UserPlus size={16} className="mr-2" />Add Employee</Button>
             </DialogTrigger>
@@ -111,6 +125,7 @@ export default function EmployeeManagement() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         <div className="relative max-w-sm">

@@ -4,7 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import {
   LayoutDashboard, Building2, Users, Clock, CalendarDays, DollarSign,
-  Briefcase, Star, Megaphone, LogOut, Sun, Moon, ChevronLeft, ChevronRight, Menu, X
+  Briefcase, Star, Megaphone, LogOut, Sun, Moon, ChevronLeft, ChevronRight, Menu, X,
+  Building, UserCircle, FileDown
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
@@ -12,16 +13,19 @@ const navConfig = {
   super_admin: [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Tenants', path: '/tenants', icon: Building2 },
+    { label: 'Profile', path: '/profile', icon: UserCircle },
   ],
   hr_manager: [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Employees', path: '/employees', icon: Users },
+    { label: 'Departments', path: '/departments', icon: Building },
     { label: 'Attendance', path: '/attendance', icon: Clock },
     { label: 'Leave Mgmt', path: '/leave-management', icon: CalendarDays },
     { label: 'Payroll', path: '/payroll', icon: DollarSign },
     { label: 'Recruitment', path: '/recruitment', icon: Briefcase },
     { label: 'Performance', path: '/performance', icon: Star },
     { label: 'Announcements', path: '/announcements', icon: Megaphone },
+    { label: 'Profile', path: '/profile', icon: UserCircle },
   ],
   employee: [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -29,6 +33,7 @@ const navConfig = {
     { label: 'Leaves', path: '/my-leaves', icon: CalendarDays },
     { label: 'Payslips', path: '/my-payslips', icon: DollarSign },
     { label: 'Announcements', path: '/announcements', icon: Megaphone },
+    { label: 'Profile', path: '/profile', icon: UserCircle },
   ],
 };
 

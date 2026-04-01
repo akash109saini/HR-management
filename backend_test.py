@@ -225,6 +225,132 @@ class HRMSAPITester:
         
         return success
 
+    def test_department_endpoints(self):
+        """Test department management endpoints (HR Manager only)"""
+        if not self.current_user or self.current_user.get('role') != 'hr_manager':
+            print("⚠️  Skipping department tests - not HR manager")
+            return True
+
+        # Get departments
+        success, response = self.run_test(
+            "Get Departments",
+            "GET",
+            "departments",
+            200
+        )
+        if success:
+            departments = response if isinstance(response, list) else response.get('departments', [])
+            print(f"   Found {len(departments)} departments")
+            
+            # Test create department
+            test_dept = {
+                "name": f"Test Department {datetime.now().strftime('%H%M%S')}",
+                "description": "Test department for API testing",
+                "head": "Test Manager"
+            }
+            create_success, create_response = self.run_test(
+                "Create Department",
+                "POST",
+                "departments",
+                201,
+                data=test_dept
+            )
+            
+            if create_success:
+                dept_id = create_response.get('id')
+                print(f"   Created department with ID: {dept_id}")
+                
+                # Test update department
+                update_data = {
+                    "name": test_dept["name"] + " Updated",
+                    "description": "Updated description",
+                    "head": "Updated Manager"
+                }
+                update_success, _ = self.run_test(
+                    "Update Department",
+                    "PUT",
+                    f"departments/{dept_id}",
+                    200,
+                    data=update_data
+                )
+                
+                # Test delete department
+                if update_success:
+                    delete_success, _ = self.run_test(
+                        "Delete Department",
+                        "DELETE",
+                        f"departments/{dept_id}",
+                        200
+                    )
+                    return delete_success
+                return update_success
+            return create_success
+        return success
+
+    def test_profile_endpoints(self):
+        """Test profile management endpoints"""
+        if not self.current_user:
+            print("⚠️  Skipping profile tests - not logged in")
+            return True
+
+        # Get profile
+        success, response = self.run_test(
+            "Get Profile",
+            "GET",
+            "profile",
+            200
+        )
+        if success:
+            profile = response
+            print(f"   Profile: {profile.get('name', 'Unknown')} - {profile.get('email', 'No email')}")
+            
+            # Test update profile (only name and mobile are typically editable)
+            update_data = {
+                "name": profile.get('name', 'Test User') + " Updated",
+                "mobile": "9999999999"
+            }
+            update_success, _ = self.run_test(
+                "Update Profile",
+                "PUT",
+                "profile",
+                200,
+                data=update_data
+            )
+            return update_success
+        return success
+
+    def test_export_endpoints(self):
+        """Test CSV export endpoints (HR Manager only)"""
+        if not self.current_user or self.current_user.get('role') != 'hr_manager':
+            print("⚠️  Skipping export tests - not HR manager")
+            return True
+
+        # Test employee export
+        success1, _ = self.run_test(
+            "Export Employees CSV",
+            "GET",
+            "export/employees",
+            200
+        )
+        
+        # Test attendance export
+        success2, _ = self.run_test(
+            "Export Attendance CSV",
+            "GET",
+            "export/attendance",
+            200
+        )
+        
+        # Test payroll export
+        success3, _ = self.run_test(
+            "Export Payroll CSV",
+            "GET",
+            "export/payroll",
+            200
+        )
+        
+        return success1 and success2 and success3
+
 def main():
     print("🚀 Starting HRMS API Testing...")
     tester = HRMSAPITester()
@@ -261,8 +387,11 @@ def main():
     
     # Test HR-specific endpoints
     tester.test_employee_endpoints()
+    tester.test_department_endpoints()
     tester.test_attendance_endpoints()
     tester.test_leave_endpoints()
+    tester.test_export_endpoints()
+    tester.test_profile_endpoints()
     
     # Test logout
     tester.test_logout()
@@ -280,8 +409,9 @@ def main():
             print("❌ Employee login failed, stopping tests")
             return 1
     
-    # Test password change flow
-    if not tester.test_change_password("9123456780", "NewPassword123!"):
+    # Test password change flow - use correct current password for Emily
+    current_password = "9123456781" if "emily" in tester.current_user.get('email', '') else "9123456780"
+    if not tester.test_change_password(current_password, "NewPassword123!"):
         print("❌ Employee password change failed")
         return 1
     
@@ -291,6 +421,7 @@ def main():
     # Test employee-specific endpoints
     tester.test_attendance_endpoints()
     tester.test_leave_endpoints()
+    tester.test_profile_endpoints()
     
     # Test logout
     tester.test_logout()

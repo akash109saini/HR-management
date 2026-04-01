@@ -8,7 +8,7 @@ import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { DollarSign, FileText, Download } from 'lucide-react';
+import { DollarSign, FileText, Download, FileDown } from 'lucide-react';
 
 export default function PayrollPage() {
   const [payslips, setPayslips] = useState([]);
@@ -66,14 +66,31 @@ export default function PayrollPage() {
     } catch { /* ignore */ }
   };
 
+  const exportCSV = async () => {
+    try {
+      const response = await api.get('/export/payroll', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'payroll_export.csv';
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch { /* ignore */ }
+  };
+
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   return (
     <DashboardLayout>
       <div className="space-y-6" data-testid="hr-payroll-page">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight font-['Outfit']">Payroll Management</h1>
-          <p className="text-sm text-muted-foreground mt-1">Generate payslips and manage compensation</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight font-['Outfit']">Payroll Management</h1>
+            <p className="text-sm text-muted-foreground mt-1">Generate payslips and manage compensation</p>
+          </div>
+          <Button variant="outline" onClick={exportCSV} data-testid="export-payroll-csv-btn">
+            <FileDown size={16} className="mr-2" />Export CSV
+          </Button>
         </div>
 
         {/* Generate Controls */}

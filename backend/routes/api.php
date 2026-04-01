@@ -11,6 +11,9 @@ use App\Http\Controllers\RecruitmentController;
 use App\Http\Controllers\PerformanceController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ExportController;
 
 // Health check
 Route::get('/', fn() => response()->json(['message' => 'HRMS API v1.0 (Laravel)']));
@@ -82,4 +85,19 @@ Route::middleware('jwt.auth')->group(function () {
     Route::post('/announcements', [AnnouncementController::class, 'store']);
     Route::put('/announcements/{announcementId}', [AnnouncementController::class, 'update']);
     Route::delete('/announcements/{announcementId}', [AnnouncementController::class, 'destroy']);
+
+    // Departments
+    Route::get('/departments', [DepartmentController::class, 'index']);
+    Route::post('/departments', [DepartmentController::class, 'store']);
+    Route::put('/departments/{deptId}', [DepartmentController::class, 'update']);
+    Route::delete('/departments/{deptId}', [DepartmentController::class, 'destroy']);
+
+    // Profile
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::put('/profile', [ProfileController::class, 'update']);
+
+    // Exports (CSV)
+    Route::get('/export/attendance', [ExportController::class, 'exportAttendance']);
+    Route::get('/export/payroll', [ExportController::class, 'exportPayroll']);
+    Route::get('/export/employees', [ExportController::class, 'exportEmployees']);
 });
