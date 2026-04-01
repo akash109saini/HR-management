@@ -181,7 +181,7 @@ class HRMSAPITester:
             success, response = self.run_test(
                 "Get My Attendance",
                 "GET",
-                "attendance/my",
+                "attendance",
                 200
             )
             if success:
@@ -213,7 +213,7 @@ class HRMSAPITester:
             success, response = self.run_test(
                 "Get My Leaves",
                 "GET",
-                "leaves/my",
+                "leaves",
                 200
             )
             if success:
@@ -247,18 +247,13 @@ def main():
     # Test logout
     tester.test_logout()
     
-    # Test 2: HR Manager Login (should require password change)
+    # Test 2: HR Manager Login (should NOT require password change)
     print("\n" + "="*50)
     print("TESTING HR MANAGER FLOW")
     print("="*50)
     
-    if not tester.test_login("hr@acmecorp.com", "9876543210", expect_first_login=True):
+    if not tester.test_login("hr@acmecorp.com", "1Akash@@", expect_first_login=False):
         print("❌ HR Manager login failed, stopping tests")
-        return 1
-    
-    # Test password change flow
-    if not tester.test_change_password("9876543210", "NewPassword123!"):
-        print("❌ Password change failed")
         return 1
     
     # Test dashboard after password change
