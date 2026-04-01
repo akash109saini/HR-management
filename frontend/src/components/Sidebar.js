@@ -46,7 +46,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     navigate('/login');
   };
 
-  const sidebarContent = (
+  const renderSidebarContent = (prefix = '') => (
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="flex items-center gap-3 p-4 border-b border-border">
@@ -74,10 +74,10 @@ export default function Sidebar({ collapsed, setCollapsed }) {
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground'
               }`
             }
-            data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+            data-testid={`${prefix}nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
           >
             <item.icon size={18} className="flex-shrink-0" />
-            {!collapsed && <span>{item.label}</span>}
+            {(!collapsed || prefix === 'mobile-') && <span>{item.label}</span>}
           </NavLink>
         ))}
       </nav>
@@ -89,20 +89,20 @@ export default function Sidebar({ collapsed, setCollapsed }) {
           size="sm"
           onClick={toggleTheme}
           className="w-full justify-start gap-3 text-muted-foreground"
-          data-testid="theme-toggle-btn"
+          data-testid={`${prefix}theme-toggle-btn`}
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          {!collapsed && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
+          {(!collapsed || prefix === 'mobile-') && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
         </Button>
         <Button
           variant="ghost"
           size="sm"
           onClick={handleLogout}
           className="w-full justify-start gap-3 text-destructive hover:text-destructive"
-          data-testid="logout-btn"
+          data-testid={`${prefix}logout-btn`}
         >
           <LogOut size={18} />
-          {!collapsed && <span>Logout</span>}
+          {(!collapsed || prefix === 'mobile-') && <span>Logout</span>}
         </Button>
       </div>
     </div>
@@ -133,7 +133,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {sidebarContent}
+        {renderSidebarContent('mobile-')}
       </aside>
 
       {/* Desktop sidebar */}
@@ -142,7 +142,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
           collapsed ? 'w-16' : 'w-60'
         }`}
       >
-        {sidebarContent}
+        {renderSidebarContent('')}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="absolute top-1/2 -right-3 z-40 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center hover:bg-accent transition-colors"
