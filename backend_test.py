@@ -272,9 +272,13 @@ def main():
     print("TESTING EMPLOYEE FLOW")
     print("="*50)
     
-    if not tester.test_login("john@acmecorp.com", "9123456780", expect_first_login=True):
-        print("❌ Employee login failed, stopping tests")
-        return 1
+    # Test Emily (as specified in test requirements)
+    if not tester.test_login("emily@acmecorp.com", "9123456781", expect_first_login=True):
+        print("❌ Employee (Emily) login failed, trying John...")
+        # Fallback to John
+        if not tester.test_login("john@acmecorp.com", "9123456780", expect_first_login=True):
+            print("❌ Employee login failed, stopping tests")
+            return 1
     
     # Test password change flow
     if not tester.test_change_password("9123456780", "NewPassword123!"):

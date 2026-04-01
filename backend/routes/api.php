@@ -54,8 +54,8 @@ Route::middleware('jwt.auth')->group(function () {
     // Leaves
     Route::post('/leaves', [LeaveController::class, 'store']);
     Route::get('/leaves', [LeaveController::class, 'index']);
-    Route::put('/leaves/{leaveId}', [LeaveController::class, 'update']);
     Route::get('/leaves/balance', [LeaveController::class, 'balance']);
+    Route::put('/leaves/{leaveId}', [LeaveController::class, 'update']);
 
     // Payroll
     Route::post('/payroll/generate', [PayrollController::class, 'generate']);

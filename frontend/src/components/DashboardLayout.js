@@ -14,7 +14,7 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <div className="relative flex-shrink-0">
+      <div className="relative flex-shrink-0 z-30">
         <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
       </div>
       <div className="flex-1 flex flex-col overflow-hidden">

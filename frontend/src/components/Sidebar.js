@@ -138,14 +138,14 @@ export default function Sidebar({ collapsed, setCollapsed }) {
 
       {/* Desktop sidebar */}
       <aside
-        className={`hidden md:flex flex-col h-screen bg-card border-r border-border transition-all duration-300 ${
+        className={`hidden md:flex flex-col h-screen bg-card border-r border-border transition-all duration-300 relative z-30 ${
           collapsed ? 'w-16' : 'w-60'
         }`}
       >
         {sidebarContent}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute top-1/2 -right-3 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center hover:bg-accent transition-colors"
+          className="absolute top-1/2 -right-3 z-40 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center hover:bg-accent transition-colors"
           data-testid="collapse-sidebar-btn"
         >
           {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
