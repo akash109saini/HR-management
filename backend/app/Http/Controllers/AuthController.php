@@ -23,10 +23,13 @@ class AuthController extends Controller
         $identifier = "{$ip}:{$email}";
         $attempts = MongoService::findOneNoId('login_attempts', ['identifier' => $identifier]);
 
-        if ($attempts && ($attempts['count'] ?? 0) >= 5) {
+        if ($attempts && ($attempts['count'] ?? 0) >= 10) {
             $lastAttempt = $attempts['last_attempt'] ?? null;
-            if ($lastAttempt && (time() - strtotime($lastAttempt)) < 900) {
-                return response()->json(['detail' => 'Too many attempts. Try again in 15 minutes.'], 429);
+            if ($lastAttempt && (time() - strtotime($lastAttempt)) < 300) {
+                return response()->json(['detail' => 'Too many attempts. Try again in 5 minutes.'], 429);
+            } else {
+                // Reset after lockout period
+                MongoService::deleteMany('login_attempts', ['identifier' => $identifier]);
             }
         }
 
