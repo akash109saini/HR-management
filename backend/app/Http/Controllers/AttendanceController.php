@@ -116,6 +116,13 @@ class AttendanceController extends Controller
             $field = $correction['correction_type'] === 'clock_in' ? 'clock_in' : 'clock_out';
             MongoService::updateOne('attendance', ['user_id' => $correction['user_id'], 'date' => $correction['date'], 'tenant_id' => $correction['tenant_id']], [$field => $correction['requested_time']]);
         }
+
+        // Send email notification
+        $emp = MongoService::findOneNoId('users', ['employee_id' => $correction['user_id']]);
+        if ($emp && isset($emp['email'])) {
+            \App\Services\EmailService::sendPunchCorrectionUpdate($emp['email'], $request->status, $correction['date']);
+        }
+
         return response()->json(MongoService::findOneNoId('punch_corrections', ['id' => $correctionId]));
     }
 }

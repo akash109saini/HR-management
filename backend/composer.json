@@ -11,7 +11,8 @@
         "firebase/php-jwt": "^6.11",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
-        "mongodb/mongodb": "^1.15"
+        "mongodb/mongodb": "^1.15",
+        "razorpay/razorpay": "^2.9"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

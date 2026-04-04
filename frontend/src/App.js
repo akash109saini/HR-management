@@ -24,6 +24,9 @@ import SalarySlabManagement from './pages/HR/SalarySlabManagement';
 import HolidayManagement from './pages/HR/HolidayManagement';
 import TerminationManagement from './pages/HR/TerminationManagement';
 import ResignationManagement from './pages/HR/ResignationManagement';
+import RolesUsersManagement from './pages/HR/RolesUsersManagement';
+import OnboardingPage from './pages/HR/OnboardingPage';
+import BillingPage from './pages/HR/BillingPage';
 import EmpDashboard from './pages/Employee/Dashboard';
 import MyAttendance from './pages/Employee/MyAttendance';
 import MyLeaves from './pages/Employee/MyLeaves';
@@ -92,6 +95,9 @@ function AppRoutes() {
       <Route path="/performance" element={<ProtectedRoute><PerformancePage /></ProtectedRoute>} />
       <Route path="/terminations" element={<ProtectedRoute><TerminationManagement /></ProtectedRoute>} />
       <Route path="/resignations" element={<ProtectedRoute><ResignationManagement /></ProtectedRoute>} />
+      <Route path="/roles-users" element={<ProtectedRoute><RolesUsersManagement /></ProtectedRoute>} />
+      <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+      <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
 
       {/* Profile - accessible to all roles */}
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />

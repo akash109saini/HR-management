@@ -58,6 +58,13 @@ class LeaveController extends Controller
             $leaveType = $leave['leave_type'];
             MongoService::increment('users', ['employee_id' => $leave['user_id']], "leave_balance.{$leaveType}", -$days);
         }
+
+        // Send email notification
+        $emp = MongoService::findOneNoId('users', ['employee_id' => $leave['user_id']]);
+        if ($emp && isset($emp['email'])) {
+            \App\Services\EmailService::sendLeaveApproval($emp['email'], $request->status, $leave['leave_type'], "{$leave['start_date']} to {$leave['end_date']}");
+        }
+
         return response()->json(MongoService::findOneNoId('leaves', ['id' => $leaveId]));
     }
 

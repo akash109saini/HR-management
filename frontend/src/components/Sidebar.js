@@ -5,7 +5,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import {
   LayoutDashboard, Building2, Users, Clock, CalendarDays, DollarSign,
   Briefcase, Star, Megaphone, LogOut, Sun, Moon, ChevronLeft, ChevronRight, Menu, X,
-  Building, UserCircle, FileDown, Timer, Award, Layers, Calendar, UserX, UserMinus
+  Building, UserCircle, FileDown, Timer, Award, Layers, Calendar, UserX, UserMinus,
+  Shield, ClipboardCheck, CreditCard
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
@@ -28,9 +29,12 @@ const navConfig = {
     { label: 'Payroll', path: '/payroll', icon: DollarSign },
     { label: 'Recruitment', path: '/recruitment', icon: Briefcase },
     { label: 'Performance', path: '/performance', icon: Star },
+    { label: 'Onboarding', path: '/onboarding', icon: ClipboardCheck },
     { label: 'Terminations', path: '/terminations', icon: UserX },
     { label: 'Resignations', path: '/resignations', icon: UserMinus },
+    { label: 'Roles & Users', path: '/roles-users', icon: Shield },
     { label: 'Announcements', path: '/announcements', icon: Megaphone },
+    { label: 'Billing', path: '/billing', icon: CreditCard },
     { label: 'Profile', path: '/profile', icon: UserCircle },
   ],
   employee: [

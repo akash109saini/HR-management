@@ -45,7 +45,19 @@ export default function EmployeeManagement() {
     setError('');
     setSuccess('');
     try {
-      const { data } = await api.post('/employees', form);
+      let profileImageUrl = '';
+      if (form.profile_image_file) {
+        const formData = new FormData();
+        formData.append('file', form.profile_image_file);
+        try {
+          const uploadRes = await api.post('/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+          profileImageUrl = uploadRes.data.url || '';
+        } catch { /* continue without image */ }
+      }
+      const payload = { ...form, profile_image: profileImageUrl };
+      delete payload.profile_image_preview;
+      delete payload.profile_image_file;
+      const { data } = await api.post('/employees', payload);
       setSuccess(`Employee created! ID: ${data.employee_id}. Initial password: ${data.initial_password}`);
       setForm({ name: '', email: '', mobile: '', department: '', designation: '', salary: 0, shift: '', joining_date: '', bank_name: '', account_number: '', ifsc_code: '', account_holder: '' });
       fetchEmployees();
@@ -94,6 +106,24 @@ export default function EmployeeManagement() {
                 {success && <div className="p-2 text-sm text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 rounded-md" data-testid="employee-create-success">{success}</div>}
 
                 <p className="text-xs text-muted-foreground">Suggested Employee ID: <span className="font-mono font-medium text-primary">{suggestedId}</span></p>
+
+                {/* Profile Image Upload */}
+                <div className="space-y-2">
+                  <Label>Profile Image</Label>
+                  <div className="flex items-center gap-4">
+                    {form.profile_image_preview ? (
+                      <img src={form.profile_image_preview} alt="Preview" className="w-16 h-16 rounded-md object-cover border border-border" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center border border-border"><UserPlus size={20} className="text-muted-foreground" /></div>
+                    )}
+                    <Input type="file" accept="image/*" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const preview = URL.createObjectURL(file);
+                      setForm(prev => ({...prev, profile_image_preview: preview, profile_image_file: file}));
+                    }} data-testid="emp-image-input" className="flex-1" />
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2"><Label>Full Name</Label><Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="John Smith" data-testid="emp-name-input" /></div>

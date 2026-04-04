@@ -21,6 +21,10 @@ use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\TerminationController;
 use App\Http\Controllers\ResignationController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\FileUploadController;
+use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\RoleUserController;
+use App\Http\Controllers\BillingController;
 
 // Health check
 Route::get('/', fn() => response()->json(['message' => 'HRMS API v1.0 (Laravel)']));
@@ -149,4 +153,30 @@ Route::middleware('jwt.auth')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::put('/notifications/{id}/read', [NotificationController::class, 'markRead']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+
+    // File Upload
+    Route::post('/upload', [FileUploadController::class, 'upload']);
+    Route::get('/files/{fileId}', [FileUploadController::class, 'download']);
+
+    // Onboarding
+    Route::get('/onboarding', [OnboardingController::class, 'index']);
+    Route::put('/onboarding/{checklistId}/items/{itemId}', [OnboardingController::class, 'updateItem']);
+    Route::get('/onboarding/templates', [OnboardingController::class, 'listTemplates']);
+    Route::post('/onboarding/templates', [OnboardingController::class, 'createTemplate']);
+    Route::delete('/onboarding/templates/{id}', [OnboardingController::class, 'deleteTemplate']);
+
+    // Roles & Users Management
+    Route::get('/roles', [RoleUserController::class, 'listRoles']);
+    Route::post('/roles', [RoleUserController::class, 'createRole']);
+    Route::put('/roles/{id}', [RoleUserController::class, 'updateRole']);
+    Route::delete('/roles/{id}', [RoleUserController::class, 'deleteRole']);
+    Route::get('/users', [RoleUserController::class, 'listUsers']);
+    Route::put('/users/{employeeId}', [RoleUserController::class, 'updateUser']);
+    Route::post('/users/{employeeId}/reset-password', [RoleUserController::class, 'resetPassword']);
+
+    // Billing (Razorpay)
+    Route::get('/billing/plans', [BillingController::class, 'getPlans']);
+    Route::post('/billing/create-order', [BillingController::class, 'createOrder']);
+    Route::post('/billing/verify-payment', [BillingController::class, 'verifyPayment']);
+    Route::get('/billing/history', [BillingController::class, 'billingHistory']);
 });

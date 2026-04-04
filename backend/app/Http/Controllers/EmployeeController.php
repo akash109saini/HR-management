@@ -62,6 +62,9 @@ class EmployeeController extends Controller
         MongoService::insertOne('users', $newUser);
         MongoService::increment('tenants', ['id' => $tenantId], 'employee_count');
 
+        // Send welcome email
+        \App\Services\EmailService::sendWelcomeEmail($newUser['email'], $request->name, $employeeId, $request->mobile);
+
         unset($newUser['password_hash']);
         $newUser['initial_password'] = $request->mobile;
         $newUser['message'] = "Employee created. Initial password is the mobile number: {$request->mobile}";
