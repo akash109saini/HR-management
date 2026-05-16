@@ -315,10 +315,13 @@ async def receive_message(request: Request):
         })
 
         if not employee:
-            await send_wa_message(
-                from_number,
-                "❌ Your number is not registered in our HR system.\n\nPlease contact your HR department to register your WhatsApp number."
-            )
+            try:
+                await send_wa_message(
+                    from_number,
+                    "❌ Your number is not registered in our HR system.\n\nPlease contact your HR department to register your WhatsApp number."
+                )
+            except Exception as send_exc:
+                logger.warning(f"WhatsApp notify-unknown failed for {from_number}: {send_exc}")
             return JSONResponse(status_code=200, content={"status": "unknown_user"})
 
         # Save message to DB

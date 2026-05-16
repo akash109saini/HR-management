@@ -191,10 +191,10 @@ export default function BlockchainCredentialsPage() {
             <CardContent className="py-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Status</p>
-                <p className="flex items-center gap-1 font-medium">
+                <div className="flex items-center gap-1 font-medium">
                   <span className={`w-2 h-2 rounded-full ${status.connected ? 'bg-green-500' : 'bg-red-500'}`} />
                   {status.connected ? 'Connected' : 'Disconnected'}
-                </p>
+                </div>
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Wallet</p>
@@ -205,12 +205,12 @@ export default function BlockchainCredentialsPage() {
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Balance</p>
-                <p className="font-medium">
-                  {status.balance_eth?.toFixed(6)} ETH
+                <div className="font-medium flex items-center gap-2">
+                  <span>{status.balance_eth?.toFixed(6)} ETH</span>
                   {status.balance_eth < status.min_anchor_eth && (
-                    <Badge variant="outline" className="ml-2 text-xs border-amber-500/30 text-amber-600">Low</Badge>
+                    <Badge variant="outline" className="text-xs border-amber-500/30 text-amber-600">Low</Badge>
                   )}
-                </p>
+                </div>
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Anchoring</p>
