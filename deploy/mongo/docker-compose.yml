@@ -1,0 +1,56 @@
+# ============================================================
+# Production-style MongoDB stack for HRMS
+# Usage:
+#   1) cp SECRETS.env.example SECRETS.env  (edit if you want)
+#   2) docker compose --env-file SECRETS.env up -d
+#   3) docker compose exec mongo mongosh --quiet \
+#        -u "$MONGO_INITDB_ROOT_USERNAME" \
+#        -p "$MONGO_INITDB_ROOT_PASSWORD" \
+#        --authenticationDatabase admin
+# ============================================================
+
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: hrms-mongo
+    restart: unless-stopped
+    command: ["--auth", "--bind_ip_all"]
+    environment:
+      # The official mongo image will auto-create this root user on FIRST start
+      # using the values from SECRETS.env.
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASS}
+      MONGO_INITDB_DATABASE:     ${MONGO_DB}
+    volumes:
+      - mongo_data:/data/db
+      - mongo_config:/data/configdb
+      # Auto-runs *.js / *.sh files in alphabetical order on first start ONLY.
+      - ./init-users-prod.js:/docker-entrypoint-initdb.d/01-init-users.js:ro
+    ports:
+      # Expose ONLY on the host loopback. The backend talks to mongo over the
+      # internal docker network on hostname "mongo".
+      - "127.0.0.1:27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [hrms]
+
+  # OPTIONAL: backend reference (showing how to consume MONGO_URL)
+  # backend:
+  #   image: your-registry/hrms-backend:latest
+  #   restart: unless-stopped
+  #   env_file: ./SECRETS.env
+  #   depends_on:
+  #     mongo:
+  #       condition: service_healthy
+  #   networks: [hrms]
+
+volumes:
+  mongo_data:
+  mongo_config:
+
+networks:
+  hrms:
+    driver: bridge

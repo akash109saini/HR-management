@@ -1,0 +1,6 @@
+# Never commit live secrets
+mongo/SECRETS.env
+mongo/SECRETS.local.env
+*.pem
+*.key
+mongo-keyfile
