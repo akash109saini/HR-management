@@ -333,11 +333,20 @@ async def receive_message(request: Request):
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
 
-        # Route and respond
+        # Route the message → get the bot reply
         response_text = await route_employee_message(text, employee)
-        await send_wa_message(from_number, response_text)
 
-        # Save outbound message
+        # Try to send (best-effort — Meta may reject non-opted-in numbers)
+        send_status = "sent"
+        send_error = None
+        try:
+            await send_wa_message(from_number, response_text)
+        except Exception as send_exc:
+            send_status = "send_failed"
+            send_error = str(send_exc)[:300]
+            logger.warning(f"WhatsApp outbound send failed: {send_error}")
+
+        # Always save outbound message for conversation history
         await db.whatsapp_messages.insert_one({
             "message_id": str(uuid.uuid4()),
             "to": from_number,
@@ -346,14 +355,16 @@ async def receive_message(request: Request):
             "text": response_text,
             "type": "text",
             "direction": "outbound",
+            "send_status": send_status,
+            "send_error": send_error,
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
 
-        return JSONResponse(status_code=200, content={"status": "replied"})
+        return JSONResponse(status_code=200, content={"status": "replied", "send_status": send_status})
 
     except Exception as e:
         logger.exception(f"WhatsApp webhook processing error: {e}")
-        return JSONResponse(status_code=200, content={"status": "error"})
+        return JSONResponse(status_code=200, content={"status": "error", "detail": str(e)[:200]})
 
 
 class SendMessageRequest(BaseModel):
@@ -373,7 +384,23 @@ async def send_message(body: SendMessageRequest, request: Request):
     if user["role"] not in ["super_admin", "hr_manager"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    result = await send_wa_message(body.to, body.message)
+    send_status = "sent"
+    send_error = None
+    result = None
+    try:
+        result = await send_wa_message(body.to, body.message)
+    except httpx.HTTPStatusError as e:
+        send_status = "send_failed"
+        try:
+            send_error = e.response.json()
+        except Exception:
+            send_error = e.response.text[:300]
+        logger.warning(f"WhatsApp send failed: {send_error}")
+    except Exception as e:
+        send_status = "send_failed"
+        send_error = str(e)[:300]
+        logger.warning(f"WhatsApp send unexpected error: {send_error}")
+
     await db.whatsapp_messages.insert_one({
         "message_id": str(uuid.uuid4()),
         "to": body.to,
@@ -382,9 +409,11 @@ async def send_message(body: SendMessageRequest, request: Request):
         "text": body.message,
         "type": "text",
         "direction": "outbound_manual",
+        "send_status": send_status,
+        "send_error": send_error if isinstance(send_error, str) else json.dumps(send_error)[:500] if send_error else None,
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
-    return {"status": "sent", "result": result}
+    return {"status": send_status, "result": result, "error": send_error}
 
 
 @router.post("/broadcast")
