@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Multi-tenant HR Management SaaS application. User provided MySQL database files (HR_management.sql and hr_tenant SQL) and wants the app running and ready for changes."
+user_problem_statement: "Multi-tenant HR Management SaaS application. User reported: 1) password reset for hr@acmecorp.com giving 'Not authenticated' error, 2) no eye button on password fields"
 
 backend:
   - task: "Python FastAPI Backend running with MongoDB"
@@ -115,7 +115,7 @@ backend:
     status_history:
       - working: true
         agent: "main"
-        comment: "Copied Python FastAPI server from backup to /app/backend. Fixed database.py to use DB_DATABASE env var. Backend running on port 8001. All routes working."
+        comment: "Backend running on port 8001 with all routes."
 
   - task: "Auth - Login/JWT/Change Password"
     implemented: true
@@ -127,7 +127,19 @@ backend:
     status_history:
       - working: true
         agent: "main"
-        comment: "Login tested - admin@hrms.com/admin123 works correctly"
+        comment: "Fixed: Added localStorage token storage + Authorization header interceptor in axios. Change-password now works reliably via Bearer token."
+
+  - task: "Password Reset - POST /api/users/{empId}/reset-password"
+    implemented: true
+    working: true
+    file: "/app/backend/routes/user_routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added new user_routes.py with /api/users, /api/roles, PUT /api/users/{empId}, POST /api/users/{empId}/reset-password endpoints. All tested and working."
 
 frontend:
   - task: "React Frontend with all HR modules"
@@ -140,21 +152,46 @@ frontend:
     status_history:
       - working: true
         agent: "main"
-        comment: "Frontend running on port 3000. Super Admin dashboard, Tenant management, HR modules all visible and working."
+        comment: "All pages working including Roles & Users management."
+
+  - task: "Eye button on password fields"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/ChangePasswordPage.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added show/hide eye toggle buttons on all 3 password fields in ChangePasswordPage. LoginPage already had it."
+
+  - task: "Auth token localStorage storage"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/lib/api.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added localStorage token persistence in AuthContext + axios request interceptor to add Authorization header. Fixes 'Not authenticated' error."
 
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: false
 
 test_plan:
   current_focus:
-    - "App running correctly - ready for user changes"
+    - "Password reset working"
+    - "Eye buttons on password fields"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
   - agent: "main"
-    message: "App is now running. Backend (Python FastAPI + MongoDB) and Frontend (React) both running correctly. Waiting for user to specify what changes they want to make."
+    message: "Fixed two issues: 1) Password reset 'Not authenticated' - added missing backend endpoints (user_routes.py) and fixed auth by storing JWT in localStorage + Authorization header interceptor; 2) Eye buttons added to ChangePasswordPage.js all 3 fields. Both verified working."

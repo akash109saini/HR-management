@@ -8,6 +8,15 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+// Request interceptor: always attach stored access token as Authorization header
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // Response interceptor for token refresh (skip auth endpoints to avoid redirect loops)
 api.interceptors.response.use(
   (response) => response,
@@ -17,9 +26,13 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
       try {
-        await axios.post(`${API_BASE}/api/auth/refresh`, {}, { withCredentials: true });
+        const { data } = await axios.post(`${API_BASE}/api/auth/refresh`, {}, { withCredentials: true });
+        if (data?.access_token) {
+          localStorage.setItem('access_token', data.access_token);
+        }
         return api(originalRequest);
       } catch {
+        localStorage.removeItem('access_token');
         return Promise.reject(error);
       }
     }
