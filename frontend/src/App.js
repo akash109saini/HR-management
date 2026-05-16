@@ -17,6 +17,7 @@ import SentimentDashboardPage from './pages/SentimentDashboardPage';
 import DemoSeederPage from './pages/SuperAdmin/DemoSeederPage';
 import BiometricDevicesPage from './pages/BiometricDevicesPage';
 import AttritionDashboardPage from './pages/AttritionDashboardPage';
+import TeamCalendarPage from './pages/TeamCalendarPage';
 import HRDashboard from './pages/HR/Dashboard';
 import EmployeeManagement from './pages/HR/EmployeeManagement';
 import AttendanceMgmt from './pages/HR/AttendanceMgmt';
@@ -98,6 +99,7 @@ function AppRoutes() {
       <Route path="/demo-seeder" element={<ProtectedRoute><DemoSeederPage /></ProtectedRoute>} />
       <Route path="/biometric-devices" element={<ProtectedRoute><BiometricDevicesPage /></ProtectedRoute>} />
       <Route path="/attrition-dashboard" element={<ProtectedRoute><AttritionDashboardPage /></ProtectedRoute>} />
+      <Route path="/team-calendar" element={<ProtectedRoute><TeamCalendarPage /></ProtectedRoute>} />
 
       {/* HR Manager */}
       <Route path="/employees" element={<ProtectedRoute><EmployeeManagement /></ProtectedRoute>} />

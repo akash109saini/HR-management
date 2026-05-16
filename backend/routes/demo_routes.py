@@ -172,6 +172,65 @@ async def seed_demo_data(request: Request):
         ann_inserted += 1
     summary["announcements_inserted"] = ann_inserted
 
+    # 5. Demo Leaves (approved) — for Team Calendar
+    from datetime import date as _date, timedelta as _td
+    today = _date.today()
+    leave_inserted = 0
+    leave_samples = [
+        {"days_offset": 1,  "duration": 2, "type": "annual",  "reason": "Family vacation"},
+        {"days_offset": 5,  "duration": 1, "type": "sick",    "reason": "Doctor appointment"},
+        {"days_offset": 8,  "duration": 3, "type": "annual",  "reason": "Wedding in family"},
+        {"days_offset": 12, "duration": 1, "type": "casual",  "reason": "Personal work"},
+        {"days_offset": 15, "duration": 5, "type": "annual",  "reason": "Annual trip"},
+        {"days_offset": 22, "duration": 2, "type": "sick",    "reason": "Recovery"},
+        {"days_offset": 28, "duration": 1, "type": "casual",  "reason": "House moving"},
+    ]
+    for i, ls in enumerate(leave_samples):
+        emp = employees[i % len(employees)]
+        s = today + _td(days=ls["days_offset"])
+        e = s + _td(days=ls["duration"] - 1)
+        await db.leaves.insert_one({
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "user_id": emp.get("employee_id"),
+            "user_name": emp.get("name"),
+            "leave_type": ls["type"],
+            "start_date": s.isoformat(),
+            "end_date": e.isoformat(),
+            "days": ls["duration"],
+            "total_days": ls["duration"],
+            "reason": ls["reason"],
+            "status": "approved",
+            "applied_at": now.isoformat(),
+            "approved_at": now.isoformat(),
+            "approved_by": user["email"],
+            "created_at": now.isoformat(),
+            "demo": True,
+        })
+        leave_inserted += 1
+    summary["leaves_inserted"] = leave_inserted
+
+    # 6. Demo Holidays — public + optional
+    hol_inserted = 0
+    holiday_samples = [
+        {"days_offset": 7,  "name": "Founder's Day",        "is_optional": False},
+        {"days_offset": 18, "name": "Tech Sabbath",          "is_optional": True},
+        {"days_offset": 35, "name": "Independence Holiday",  "is_optional": False},
+    ]
+    for h in holiday_samples:
+        d = today + _td(days=h["days_offset"])
+        await db.holidays.insert_one({
+            "id": str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "name": h["name"],
+            "date": d.isoformat(),
+            "is_optional": h["is_optional"],
+            "created_at": now.isoformat(),
+            "demo": True,
+        })
+        hol_inserted += 1
+    summary["holidays_inserted"] = hol_inserted
+
     return {"message": "Demo data seeded successfully", **summary}
 
 
@@ -185,12 +244,16 @@ async def remove_demo_data(request: Request):
     r2 = await db.credentials.delete_many({"demo": True})
     r3 = await db.whatsapp_messages.delete_many({"demo": True})
     r4 = await db.announcements.delete_many({"demo": True})
+    r5 = await db.leaves.delete_many({"demo": True})
+    r6 = await db.holidays.delete_many({"demo": True})
     return {
         "message": "Demo data removed",
         "feedbacks_removed": r1.deleted_count,
         "credentials_removed": r2.deleted_count,
         "whatsapp_removed": r3.deleted_count,
         "announcements_removed": r4.deleted_count,
+        "leaves_removed": r5.deleted_count,
+        "holidays_removed": r6.deleted_count,
     }
 
 
@@ -204,4 +267,6 @@ async def demo_status(request: Request):
         "credentials_demo": await db.credentials.count_documents({"demo": True}),
         "whatsapp_demo": await db.whatsapp_messages.count_documents({"demo": True}),
         "announcements_demo": await db.announcements.count_documents({"demo": True}),
+        "leaves_demo": await db.leaves.count_documents({"demo": True}),
+        "holidays_demo": await db.holidays.count_documents({"demo": True}),
     }

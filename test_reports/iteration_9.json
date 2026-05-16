@@ -1,0 +1,55 @@
+{
+  "summary": "Iteration 9 — Team Time-Off Calendar (Idea 6) + WhatsApp token/phone_number_id refresh + extended demo seeder (leaves + holidays). Backend: 11/11 new pytest cases passed (test_team_calendar.py) + 41/41 regression (test_new_modules.py + test_whatsapp_blockchain.py) all green = 52/52 = 100%. Verified: (a) /api/whatsapp/status now reports phone_number_id=1082457841623524; (b) /api/whatsapp/send returns HTTP 200 with status=send_failed gracefully (Meta 131030 'recipient not in allow-list' as expected); (c) POST /api/demo/seed returns leaves_inserted=7 and holidays_inserted=3 alongside existing collections; DELETE /api/demo/seed cleans them; (d) GET /api/leaves/calendar returns {start,end,events,by_day,summary} with correct tenant scoping, default and custom date ranges, 401 when unauthenticated, employee scope, and per-day expansion for multi-day leaves (3-day leave appears in 3 by_day keys). Frontend HR (/team-calendar): page renders 4 summary cards (On Leave Today=0, Upcoming Days Off=13, Holidays In View=2, Total Events=12), 7x6 = 42 day grid, today=16 highlighted, leaves shown as colored pills with employee first names, Founder's Day holiday pill with star icon on 23rd, prev/next/today buttons functional, day click updates 'Selected: 2026-05-17' panel with 2 leave entries, Upcoming This Month panel lists 8 events sorted by date, color legend (Annual/Sick/Casual/Holiday) visible. Employee role: 'Team Calendar' link present in sidebar; navigating to /team-calendar redirects to Change Password screen because employee has first_login=true and the SPA enforces password change regardless of master-password login bypass (pre-existing behavior, not introduced this iteration).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Employee accessing /team-calendar with master password",
+        "issue": "Master password (SuperAdmin@123) is accepted at /api/auth/login but the SPA still forces /change-password on any protected route because the user document has first_login=true. Effect: an employee cannot view the Team Calendar without first changing their mobile-number password. The backend API itself works for the employee token (verified by pytest test_calendar_employee_tenant_scoped). This is a pre-existing first_login enforcement, NOT a regression from Iteration 9.",
+        "affected_selectors": ["/change-password redirect on /team-calendar"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "All authenticated pages",
+        "issues": [
+          "Carry-over from iter 8: console shows repeated 401/404 on favicon/manifest assets. Cosmetic; does not affect functionality."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_team_calendar.py",
+    "/app/backend/tests/test_new_modules.py",
+    "/app/backend/tests/test_whatsapp_blockchain.py",
+    "/app/test_reports/pytest/iter9_results.xml"
+  ],
+  "action_items": [
+    "(Optional UX) If the master password should fully bypass first_login on the frontend too, update the post-login redirect logic to skip /change-password when the login flow used the master password. Otherwise, document that employees must change their mobile-pw before accessing any module — this also affects every other employee-facing feature, not just Team Calendar.",
+    "(Optional cosmetic) Resolve repeated 404 favicon/manifest console errors carried over from iter 7-8."
+  ],
+  "critical_code_review_comments": [
+    "leave_routes.py /calendar: clean implementation — overlap test ($and end_date>=start AND start_date<=end) correctly captures partially-overlapping multi-day leaves; per-day expansion loop populates by_day correctly; tenant scoping enforced via role check (super_admin sees all). Excludes _id from Mongo projections. Holidays merged with tenant_id $or null filter to support global holidays. Good.",
+    "demo_routes.py: seed/remove/status cleanly extended to leaves + holidays with demo:true tagging; deterministic offsets from today() so events always appear in the default calendar window. Sample leaves include a 5-day multi-day item which is exactly what the calendar widget needs to demo expansion. Good.",
+    "TeamCalendarPage.js: comprehensive data-testid coverage (team-calendar-page, stat-today, prev-month/next-month/today-btn, day-{iso}, holiday-item, leave-item, upcoming-item, refresh-btn) makes testing trivial. Grid is the standard 6-week (42 cell) Sun-Sat layout. Color legend present. Multi-day leaves show as pills with employee first names and a 'more' counter (verified visually: John, Emily). Good UX.",
+    "Backend correctly returns 401 (not 403) when no Authorization header is sent for /api/leaves/calendar.",
+    "WhatsApp env refresh (phone_number_id=1082457841623524) propagated correctly to /status response."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_team_calendar.py (new — 11 pytest cases covering WhatsApp status refresh, send graceful failure, demo seeder leaves/holidays, /api/leaves/calendar default/custom/unauth/employee/multi-day/holidays paths)"
+  ],
+  "success_rate": {
+    "backend": "100% (52/52 — 11 new + 41 regression)",
+    "frontend": "100% for HR Team Calendar; Employee Team Calendar inaccessible due to pre-existing first_login redirect (sidebar link itself present)"
+  },
+  "test_credentials": "Used credentials from /app/memory/test_credentials.md: Super Admin admin@hrms.com/admin123, HR hr@acmecorp.com/1Akash@@, Employee john@acmecorp.com with master pw SuperAdmin@123.",
+  "seed_data_creation": "Backend test_team_calendar.py runs DELETE /api/demo/seed then POST /api/demo/seed as part of TestDemoSeederExtended, leaving a fresh seed afterward (12 feedbacks, 15 credentials, 24 whatsapp_messages, 3 announcements, 7 leaves, 3 holidays for Acme tenant). All tagged demo:true.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Test suites in /app/backend/tests/: test_team_calendar.py (11 cases, iter 9), test_new_modules.py (18 cases, iter 8), test_whatsapp_blockchain.py (23 cases, iter 7). Total 52 passing. The /api/leaves/calendar default window is today()-replace(day=1) .. today()+60d. Demo seeder is idempotent only via the DELETE+POST cycle — POST alone is cumulative. WhatsApp test number is +15551633770, phone_number_id 1082457841623524 — sends to non-allow-listed numbers gracefully fail (Meta code 131030) and the backend returns HTTP 200 with status=send_failed. Employee-role frontend access to protected routes still hits the first_login change-password screen even when logged in via master password — verify with HR token if the backend route is the focus.",
+  "rca_of_the_issue": "No production bugs. The only flow gap is the pre-existing first_login enforcement that blocks employees with mobile-password from any protected page — this predates iter 9. Calendar backend correctly handles tenant scoping, default/custom date ranges, unauthenticated 401, and multi-day leave per-day expansion. Frontend HR experience matches the spec card-for-card."
+}
