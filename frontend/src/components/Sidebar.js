@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Building2, Users, Clock, CalendarDays, DollarSign,
   Briefcase, Star, Megaphone, LogOut, Sun, Moon, ChevronLeft, ChevronRight, Menu, X,
   Building, UserCircle, FileDown, Timer, Award, Layers, Calendar, UserX, UserMinus,
-  Shield, ClipboardCheck, CreditCard, Settings2, PiggyBank, KeyRound
+  Shield, ClipboardCheck, CreditCard, Settings2, PiggyBank, KeyRound, Sparkles
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
@@ -38,6 +38,7 @@ const navConfig = {
     { label: 'Resignations', path: '/resignations', icon: UserMinus },
     { label: 'Roles & Users', path: '/roles-users', icon: Shield },
     { label: 'Announcements', path: '/announcements', icon: Megaphone },
+    { label: 'AI Assistant', path: '/ai-assistant', icon: Sparkles },
     { label: 'Billing', path: '/billing', icon: CreditCard },
     { label: 'Profile', path: '/profile', icon: UserCircle },
   ],
@@ -46,6 +47,7 @@ const navConfig = {
     { label: 'Attendance', path: '/my-attendance', icon: Clock },
     { label: 'Leaves', path: '/my-leaves', icon: CalendarDays },
     { label: 'Payslips', path: '/my-payslips', icon: DollarSign },
+    { label: 'AI Assistant', path: '/ai-assistant', icon: Sparkles },
     { label: 'Announcements', path: '/announcements', icon: Megaphone },
     { label: 'Profile', path: '/profile', icon: UserCircle },
   ],

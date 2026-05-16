@@ -1,31 +1,36 @@
-# HRMS - Multi-Tenant SaaS HR Management System
+# HRMS 2026 - Multi-Tenant HR Management SaaS
 
-## Architecture
-- Backend: Laravel 12 (PHP 8.2) + MongoDB + JWT + bcrypt
-- Frontend: React + Tailwind CSS + Shadcn UI + Recharts
-- Email: Resend API (fallback to in-app notifications)
-- Payments: Razorpay (demo mode, needs real keys for production)
-- Storage: Emergent Object Storage (base64 fallback)
-- AI: OpenAI GPT-5.2 via Emergent Integration Proxy
+## Architecture (CURRENT STATE)
+| Layer | Technology | Port | Status |
+|-------|-----------|------|--------|
+| Core HR Backend | Python FastAPI | 8001 | ✅ Running |
+| AI Engine | Python FastAPI routes (/api/ai/*) | 8001 | ✅ Running |
+| NestJS Backend | Node.js NestJS | 8002 | ✅ Running |
+| Frontend | React (CRA) | 3000 | ✅ Running |
+| Database | MongoDB | 27017 | ✅ Running |
+| WhatsApp | Meta Business API | — | 🔑 Needs API key |
+| Blockchain | Ethereum Sepolia | — | 🔑 Needs Alchemy key |
 
-## All Implemented Features
-### Auth & Core: JWT auth, first-login password change, 3-role RBAC, dark/light mode
-### Super Admin: Dashboard, Tenant CRUD
-### HR Manager (20+ modules):
-Dashboard, Employees (with image upload, dept/desig/shift selects, bank details, joining date),
-Departments, Designations, Shifts, Salary Slabs, Attendance, Leave Mgmt, Holidays,
-Payroll (PDF payslips + CSV export), Recruitment, Performance (AI summaries),
-Onboarding Checklists, Terminations, Resignations, Roles & Users Management,
-Announcements, Billing (Razorpay plans), Profile, Notification Bell
-### Employee: Dashboard (clock in/out), Attendance, Leaves, Payslips, Announcements, Profile
-### Integrations: Email notifications (Resend), Razorpay billing, Object storage, CSV exports
+## NestJS Backend (/app/nestjs-backend)
+Built modules: Auth, Employees, Tenants, Leaves, Attendance, Payroll, Announcements, Dashboard, WhatsApp, Blockchain, AI (delegates to Python)
+Port: 8002
+Build: yarn build (compiled to dist/)
 
-## Credentials
-- Super Admin: admin@hrms.com / admin123
-- HR Manager: hr@acmecorp.com / 1Akash@@
-- Employees: mobile numbers as passwords (first_login=true)
+## AI Features (Live on port 8001)
+- /api/ai/chat - HR Chatbot (GPT-4.1-mini)
+- /api/ai/attrition-risk/:id - Attrition risk prediction
+- /api/ai/sentiment - Sentiment analysis
+- /api/ai/parse-resume - Resume parser with blind hiring
+- /api/ai/career-path/:id - Career path suggestions
 
-## Production Setup Needed
-- Replace RESEND_API_KEY with real key from resend.com
-- Replace RAZORPAY_KEY_ID/SECRET with real keys from razorpay.com
-- Add Razorpay checkout.js script to frontend index.html for live payments
+## Pending (Need External Keys)
+- WhatsApp: Set WHATSAPP_TOKEN + WHATSAPP_PHONE_NUMBER_ID in /app/nestjs-backend/.env
+- Blockchain: Set ALCHEMY_API_KEY + ETHEREUM_PRIVATE_KEY in /app/nestjs-backend/.env
+
+## Key Files
+- /app/backend/server.py - Python FastAPI main
+- /app/backend/routes/ai_routes.py - AI engine
+- /app/nestjs-backend/src/main.ts - NestJS main
+- /app/nestjs-backend/src/whatsapp/ - WhatsApp module
+- /app/nestjs-backend/src/blockchain/ - Blockchain module
+- /app/frontend/src/pages/AIAssistantPage.js - AI UI

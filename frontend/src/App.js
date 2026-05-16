@@ -10,6 +10,7 @@ import ChangePasswordPage from './pages/ChangePasswordPage';
 import SADashboard from './pages/SuperAdmin/Dashboard';
 import TenantManagement from './pages/SuperAdmin/TenantManagement';
 import SecuritySettings from './pages/SuperAdmin/SecuritySettings';
+import AIAssistantPage from './pages/AIAssistantPage';
 import HRDashboard from './pages/HR/Dashboard';
 import EmployeeManagement from './pages/HR/EmployeeManagement';
 import AttendanceMgmt from './pages/HR/AttendanceMgmt';
@@ -84,6 +85,7 @@ function AppRoutes() {
       {/* Super Admin */}
       <Route path="/tenants" element={<ProtectedRoute><TenantManagement /></ProtectedRoute>} />
       <Route path="/security-settings" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
+      <Route path="/ai-assistant" element={<ProtectedRoute><AIAssistantPage /></ProtectedRoute>} />
 
       {/* HR Manager */}
       <Route path="/employees" element={<ProtectedRoute><EmployeeManagement /></ProtectedRoute>} />
