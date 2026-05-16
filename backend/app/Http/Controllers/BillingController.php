@@ -3,7 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Services\MongoService;
+use App\Models\BillingOrder;
+use App\Models\Tenant;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Razorpay\Api\Api;
@@ -32,16 +33,29 @@ class BillingController extends Controller
         $request->validate(['plan_id' => 'required', 'amount' => 'required|integer']);
 
         $keyId = env('RAZORPAY_KEY_ID', '');
+        
+        // Use Landlord connection for Billing Orders
+        $orderData = [
+            'tenant_id' => $user['tenant_id'] ?? '',
+            'plan_id' => $request->plan_id,
+            'amount' => $request->amount,
+            'currency' => 'INR',
+            'status' => 'created',
+            'created_by' => $user['name'] ?? $user['email'],
+        ];
+
         if (!$keyId || str_contains($keyId, 'placeholder')) {
             // Mock order for demo
-            $orderId = 'order_demo_' . Str::random(16);
-            MongoService::insertOne('billing_orders', [
-                'id' => (string)Str::uuid(), 'order_id' => $orderId,
-                'tenant_id' => $user['tenant_id'] ?? '', 'plan_id' => $request->plan_id,
-                'amount' => $request->amount, 'currency' => 'INR', 'status' => 'created',
-                'created_by' => $user['name'] ?? $user['email'], 'created_at' => now()->toISOString(),
+            $orderData['order_id'] = 'order_demo_' . Str::random(16);
+            $newOrder = BillingOrder::create($orderData);
+            
+            return response()->json([
+                'order_id' => $orderData['order_id'], 
+                'amount' => $request->amount, 
+                'currency' => 'INR', 
+                'key_id' => $keyId, 
+                'demo' => true
             ]);
-            return response()->json(['order_id' => $orderId, 'amount' => $request->amount, 'currency' => 'INR', 'key_id' => $keyId, 'demo' => true]);
         }
 
         try {
@@ -53,13 +67,15 @@ class BillingController extends Controller
                 'payment_capture' => 1,
             ]);
 
-            MongoService::insertOne('billing_orders', [
-                'id' => (string)Str::uuid(), 'order_id' => $order['id'],
-                'tenant_id' => $user['tenant_id'] ?? '', 'plan_id' => $request->plan_id,
-                'amount' => $request->amount, 'currency' => 'INR', 'status' => 'created',
-                'created_by' => $user['name'] ?? $user['email'], 'created_at' => now()->toISOString(),
+            $orderData['order_id'] = $order['id'];
+            BillingOrder::create($orderData);
+            
+            return response()->json([
+                'order_id' => $order['id'], 
+                'amount' => $order['amount'], 
+                'currency' => $order['currency'], 
+                'key_id' => $keyId
             ]);
-            return response()->json(['order_id' => $order['id'], 'amount' => $order['amount'], 'currency' => $order['currency'], 'key_id' => $keyId]);
         } catch (\Exception $e) {
             Log::error("Razorpay order creation failed: " . $e->getMessage());
             return response()->json(['detail' => 'Payment order creation failed: ' . $e->getMessage()], 500);
@@ -72,17 +88,21 @@ class BillingController extends Controller
         $request->validate(['order_id' => 'required', 'payment_id' => 'required', 'plan_id' => 'required']);
 
         $keyId = env('RAZORPAY_KEY_ID', '');
+        $tenantId = $user['tenant_id'] ?? '';
+
         if (!$keyId || str_contains($keyId, 'placeholder')) {
-            // Demo mode: just update tenant plan
-            $order = MongoService::findOneNoId('billing_orders', ['order_id' => $request->order_id]);
+            // Demo mode: update landlord DB
+            $order = BillingOrder::where('order_id', $request->order_id)->first();
             if ($order) {
-                MongoService::updateOne('billing_orders', ['order_id' => $request->order_id], ['status' => 'paid', 'payment_id' => $request->payment_id]);
+                $order->update(['status' => 'paid', 'payment_id' => $request->payment_id]);
             }
-            $tenantId = $user['tenant_id'] ?? '';
             if ($tenantId) {
                 $plan = $request->plan_id;
                 $maxEmp = ['free' => 5, 'basic' => 50, 'premium' => 200, 'enterprise' => 999][$plan] ?? 50;
-                MongoService::updateOne('tenants', ['id' => $tenantId], ['subscription_plan' => $plan, 'max_employees' => $maxEmp]);
+                Tenant::on('landlord')->where('id', $tenantId)->update([
+                    'subscription_plan' => $plan, 
+                    'max_employees' => $maxEmp
+                ]);
             }
             return response()->json(['status' => 'success', 'message' => 'Plan upgraded (demo mode)', 'demo' => true]);
         }
@@ -95,16 +115,22 @@ class BillingController extends Controller
                 'razorpay_signature' => $request->signature ?? '',
             ]);
 
-            MongoService::updateOne('billing_orders', ['order_id' => $request->order_id], ['status' => 'paid', 'payment_id' => $request->payment_id]);
+            $order = BillingOrder::where('order_id', $request->order_id)->first();
+            if ($order) {
+                $order->update(['status' => 'paid', 'payment_id' => $request->payment_id]);
+            }
 
-            $tenantId = $user['tenant_id'] ?? '';
             if ($tenantId) {
                 $plan = $request->plan_id;
                 $maxEmp = ['free' => 5, 'basic' => 50, 'premium' => 200, 'enterprise' => 999][$plan] ?? 50;
-                MongoService::updateOne('tenants', ['id' => $tenantId], ['subscription_plan' => $plan, 'max_employees' => $maxEmp]);
+                Tenant::on('landlord')->where('id', $tenantId)->update([
+                    'subscription_plan' => $plan, 
+                    'max_employees' => $maxEmp
+                ]);
             }
             return response()->json(['status' => 'success', 'message' => 'Payment verified and plan upgraded']);
         } catch (\Exception $e) {
+            Log::error("Razorpay payment verification failed: " . $e->getMessage());
             return response()->json(['detail' => 'Payment verification failed'], 400);
         }
     }
@@ -112,8 +138,12 @@ class BillingController extends Controller
     public function billingHistory(Request $request)
     {
         $user = $request->auth_user;
-        $filter = [];
-        if ($user['role'] === 'hr_manager') $filter['tenant_id'] = $user['tenant_id'] ?? '';
-        return response()->json(MongoService::find('billing_orders', $filter, ['projection' => ['_id' => 0], 'sort' => ['created_at' => -1]]));
+        $query = BillingOrder::query();
+        
+        if ($user['role'] === 'hr_manager') {
+            $query->where('tenant_id', $user['tenant_id'] ?? '');
+        }
+
+        return response()->json($query->orderBy('created_at', 'desc')->get());
     }
 }

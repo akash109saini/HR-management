@@ -3,33 +3,32 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Services\MongoService;
-use App\Helpers\AuthHelper;
+use App\Models\User;
 
 class ProfileController extends Controller
 {
     public function show(Request $request)
     {
         $user = $request->auth_user;
-        $profile = MongoService::findOneNoId('users', ['email' => $user['email']]);
-        if ($profile) unset($profile['password_hash']);
+        $profile = User::find($user['id']);
         return response()->json($profile);
     }
 
     public function update(Request $request)
     {
         $user = $request->auth_user;
-        $allowed = ['name', 'mobile', 'department', 'position'];
-        // HR and super admin can also update salary
+        $profile = User::find($user['id']);
+        if (!$profile) {
+            return response()->json(['detail' => 'User not found'], 404);
+        }
+
+        $allowed = ['name', 'mobile', 'department', 'designation'];
         if (in_array($user['role'], ['super_admin', 'hr_manager'])) {
             $allowed[] = 'salary';
         }
         $updates = array_filter($request->only($allowed), fn($v) => $v !== null);
-        $updates['updated_at'] = now()->toISOString();
-
-        MongoService::updateOne('users', ['email' => $user['email']], $updates);
-        $profile = MongoService::findOneNoId('users', ['email' => $user['email']]);
-        if ($profile) unset($profile['password_hash']);
-        return response()->json($profile);
+        
+        $profile->update($updates);
+        return response()->json($profile->fresh());
     }
 }

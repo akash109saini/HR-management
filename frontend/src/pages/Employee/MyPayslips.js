@@ -82,8 +82,9 @@ export default function MyPayslips() {
                   <div className="mt-4 grid grid-cols-4 gap-4 text-xs text-muted-foreground border-t border-border pt-3">
                     <div>Basic: <span className="text-foreground">${p.basic_salary?.toLocaleString()}</span></div>
                     <div>HRA: <span className="text-foreground">${p.hra?.toLocaleString()}</span></div>
-                    <div>Days: <span className="text-foreground">{p.days_worked}/{p.days_worked + p.days_absent}</span></div>
                     <div>PF: <span className="text-foreground">-${p.pf_deduction?.toLocaleString()}</span></div>
+                    {p.advance_deduction > 0 && <div>Advance: <span className="text-destructive">-${p.advance_deduction?.toLocaleString()}</span></div>}
+                    <div>Days: <span className="text-foreground">{p.days_worked}/{p.days_worked + p.days_absent}</span></div>
                   </div>
                 </CardContent>
               </Card>

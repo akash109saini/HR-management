@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import api, { formatApiError } from '../../lib/api';
 import DashboardLayout from '../../components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Badge } from '../../components/ui/badge';
 import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -61,24 +60,6 @@ export default function DepartmentManagement() {
     setError('');
   };
 
-  const FormFields = () => (
-    <div className="space-y-4">
-      {error && <div className="p-2 text-sm text-destructive bg-destructive/10 rounded-md">{error}</div>}
-      <div className="space-y-2">
-        <Label>Department Name</Label>
-        <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Engineering" data-testid="dept-name-input" />
-      </div>
-      <div className="space-y-2">
-        <Label>Description</Label>
-        <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Department description..." rows={3} data-testid="dept-desc-input" />
-      </div>
-      <div className="space-y-2">
-        <Label>Department Head</Label>
-        <Input value={form.head} onChange={e => setForm({...form, head: e.target.value})} placeholder="John Smith" data-testid="dept-head-input" />
-      </div>
-    </div>
-  );
-
   return (
     <DashboardLayout>
       <div className="space-y-6" data-testid="department-management-page">
@@ -93,8 +74,22 @@ export default function DepartmentManagement() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Create Department</DialogTitle></DialogHeader>
-              <FormFields />
-              <Button onClick={handleCreate} className="w-full" data-testid="submit-create-dept-btn">Create</Button>
+              <div className="space-y-4">
+                {error && <div className="p-2 text-sm text-destructive bg-destructive/10 rounded-md">{error}</div>}
+                <div className="space-y-2">
+                  <Label>Department Name</Label>
+                  <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Engineering" data-testid="dept-name-input" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Department description..." rows={3} data-testid="dept-desc-input" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Department Head</Label>
+                  <Input value={form.head} onChange={e => setForm({...form, head: e.target.value})} placeholder="John Smith" data-testid="dept-head-input" />
+                </div>
+              </div>
+              <Button onClick={handleCreate} className="w-full mt-4" data-testid="submit-create-dept-btn">Create</Button>
             </DialogContent>
           </Dialog>
         </div>
@@ -142,8 +137,22 @@ export default function DepartmentManagement() {
                             {editDept?.id === d.id && (
                               <DialogContent>
                                 <DialogHeader><DialogTitle>Edit Department</DialogTitle></DialogHeader>
-                                <FormFields />
-                                <Button onClick={handleUpdate} className="w-full" data-testid="submit-edit-dept-btn">Save</Button>
+                                <div className="space-y-4">
+                                  {error && <div className="p-2 text-sm text-destructive bg-destructive/10 rounded-md">{error}</div>}
+                                  <div className="space-y-2">
+                                    <Label>Department Name</Label>
+                                    <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Engineering" data-testid="dept-name-input" />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>Description</Label>
+                                    <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Department description..." rows={3} data-testid="dept-desc-input" />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>Department Head</Label>
+                                    <Input value={form.head} onChange={e => setForm({...form, head: e.target.value})} placeholder="John Smith" data-testid="dept-head-input" />
+                                  </div>
+                                </div>
+                                <Button onClick={handleUpdate} className="w-full mt-4" data-testid="submit-edit-dept-btn">Save</Button>
                               </DialogContent>
                             )}
                           </Dialog>

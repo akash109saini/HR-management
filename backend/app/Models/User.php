@@ -8,10 +8,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+use App\Traits\HasUuid;
+
 class User extends Authenticatable
 {
+
+    protected $connection = 'tenant';
+
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasUuid;
 
     /**
      * The attributes that are mass assignable.
@@ -22,6 +27,20 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
+        'employee_id',
+        'biometric_pin',
+        'mobile',
+        'first_login',
+        'department',
+        'designation',
+        'salary',
+        'shift',
+        'joining_date',
+        'status',
+        'profile_image',
+        'bank_details',
+        'leave_balance',
     ];
 
     /**
@@ -44,6 +63,11 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'first_login' => 'boolean',
+            'bank_details' => 'array',
+            'leave_balance' => 'array',
+            'salary' => 'decimal:2',
+            'joining_date' => 'date',
         ];
     }
 }

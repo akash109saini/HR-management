@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\User;
+use App\Models\Notification;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class EmailService
 {
@@ -41,17 +44,14 @@ class EmailService
 
     private static function storeAsNotification(string $toEmail, string $title, string $message): void
     {
-        $user = MongoService::findOneNoId('users', ['email' => $toEmail]);
+        $user = User::where('email', $toEmail)->first();
         if ($user) {
-            MongoService::insertOne('notifications', [
-                'id' => bin2hex(random_bytes(16)),
-                'tenant_id' => $user['tenant_id'] ?? '',
-                'user_id' => $user['employee_id'] ?? $user['email'],
+            Notification::create([
+                'user_id' => $user->id,
                 'type' => 'email_notification',
                 'title' => $title,
                 'message' => $message,
-                'read' => false,
-                'created_at' => now()->toISOString(),
+                'is_read' => false,
             ]);
         }
     }

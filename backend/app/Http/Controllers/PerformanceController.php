@@ -3,7 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Services\MongoService;
+use App\Models\PerformanceReview;
+use App\Models\User;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
@@ -12,57 +13,90 @@ class PerformanceController extends Controller
     public function index(Request $request)
     {
         $user = $request->auth_user;
-        $filter = [];
-        if ($user['role'] === 'employee') { $filter['employee_id'] = $user['employee_id'] ?? ''; $filter['tenant_id'] = $user['tenant_id'] ?? ''; }
-        elseif ($user['role'] === 'hr_manager') $filter['tenant_id'] = $user['tenant_id'] ?? '';
-        return response()->json(MongoService::find('performance_reviews', $filter, ['projection' => ['_id' => 0], 'sort' => ['created_at' => -1]]));
+        $query = PerformanceReview::query();
+
+        if ($user['role'] === 'employee') {
+            $query->where('user_id', $user['id']);
+        }
+
+        return response()->json($query->orderBy('created_at', 'desc')->get());
     }
 
     public function store(Request $request)
     {
         $user = $request->auth_user;
-        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) return response()->json(['detail' => 'Not authorized'], 403);
-        $request->validate(['employee_id' => 'required', 'review_period' => 'required', 'rating' => 'required|integer|min:1|max:5']);
-        $employee = MongoService::findOneNoId('users', ['employee_id' => $request->employee_id]);
-        if (!$employee) return response()->json(['detail' => 'Employee not found'], 404);
+        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) {
+            return response()->json(['detail' => 'Not authorized'], 403);
+        }
 
-        $review = [
-            'id' => (string)Str::uuid(), 'employee_id' => $request->employee_id,
-            'employee_name' => $employee['name'] ?? '', 'reviewer_id' => $user['employee_id'] ?? $user['email'],
-            'reviewer_name' => $user['name'] ?? '', 'tenant_id' => $user['tenant_id'] ?? $employee['tenant_id'] ?? '',
-            'review_period' => $request->review_period, 'rating' => min(5, max(1, (int)$request->rating)),
-            'goals' => $request->goals ?? '', 'achievements' => $request->achievements ?? '',
-            'areas_of_improvement' => $request->areas_of_improvement ?? '', 'ai_summary' => null,
-            'status' => 'submitted', 'created_at' => now()->toISOString(),
-        ];
-        MongoService::insertOne('performance_reviews', $review);
+        $request->validate([
+            'employee_id' => 'required', 
+            'review_period' => 'required', 
+            'rating' => 'required|integer|min:1|max:5'
+        ]);
+
+        $employee = User::where('employee_id', $request->employee_id)->first();
+        if (!$employee) {
+            return response()->json(['detail' => 'Employee not found'], 404);
+        }
+
+        $review = PerformanceReview::create([
+            'user_id' => $employee->id,
+            'employee_id' => $request->employee_id,
+            'employee_name' => $employee->name ?? '',
+            'reviewer_id' => $user['id'],
+            'reviewer_name' => $user['name'] ?? '',
+            'review_period' => $request->review_period,
+            'rating' => (int)$request->rating,
+            'goals' => $request->goals ?? '',
+            'achievements' => $request->achievements ?? '',
+            'areas_of_improvement' => $request->areas_of_improvement ?? '',
+            'status' => 'submitted',
+        ]);
+
         return response()->json($review, 201);
     }
 
     public function update(Request $request, string $reviewId)
     {
         $user = $request->auth_user;
-        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) return response()->json(['detail' => 'Not authorized'], 403);
+        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) {
+            return response()->json(['detail' => 'Not authorized'], 403);
+        }
+
+        $review = PerformanceReview::find($reviewId);
+        if (!$review) {
+            return response()->json(['detail' => 'Review not found'], 404);
+        }
+
         $updates = array_filter($request->only(['rating', 'goals', 'achievements', 'areas_of_improvement', 'status']), fn($v) => $v !== null);
-        MongoService::updateOne('performance_reviews', ['id' => $reviewId], $updates);
-        return response()->json(MongoService::findOneNoId('performance_reviews', ['id' => $reviewId]));
+        $review->update($updates);
+
+        return response()->json($review->fresh());
     }
 
     public function generateAiSummary(Request $request, string $reviewId)
     {
         $user = $request->auth_user;
-        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) return response()->json(['detail' => 'Not authorized'], 403);
-        $review = MongoService::findOneNoId('performance_reviews', ['id' => $reviewId]);
-        if (!$review) return response()->json(['detail' => 'Review not found'], 404);
+        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) {
+            return response()->json(['detail' => 'Not authorized'], 403);
+        }
+
+        $review = PerformanceReview::find($reviewId);
+        if (!$review) {
+            return response()->json(['detail' => 'Review not found'], 404);
+        }
 
         $apiKey = env('EMERGENT_LLM_KEY', '');
-        if (!$apiKey) return response()->json(['detail' => 'AI service not configured'], 500);
+        if (!$apiKey) {
+            return response()->json(['detail' => 'AI service not configured'], 500);
+        }
 
         try {
-            $prompt = "Generate a professional performance review summary:\n\nEmployee: " . ($review['employee_name'] ?? 'N/A')
-                . "\nPeriod: " . ($review['review_period'] ?? 'N/A') . "\nRating: " . ($review['rating'] ?? 'N/A') . "/5"
-                . "\nGoals: " . ($review['goals'] ?? 'N/A') . "\nAchievements: " . ($review['achievements'] ?? 'N/A')
-                . "\nAreas of Improvement: " . ($review['areas_of_improvement'] ?? 'N/A')
+            $prompt = "Generate a professional performance review summary:\n\nEmployee: " . ($review->employee_name ?? 'N/A')
+                . "\nPeriod: " . ($review->review_period ?? 'N/A') . "\nRating: " . ($review->rating ?? 'N/A') . "/5"
+                . "\nGoals: " . ($review->goals ?? 'N/A') . "\nAchievements: " . ($review->achievements ?? 'N/A')
+                . "\nAreas of Improvement: " . ($review->areas_of_improvement ?? 'N/A')
                 . "\n\nProvide a 3-4 sentence summary highlighting key strengths, areas for growth, and overall assessment.";
 
             $proxyUrl = env('INTEGRATION_PROXY_URL', 'https://integrations.emergentagent.com');
@@ -84,14 +118,15 @@ class PerformanceController extends Controller
             curl_close($ch);
 
             if ($httpCode !== 200) {
-                $summary = "Performance Review Summary for {$review['employee_name']}: Rated {$review['rating']}/5 for {$review['review_period']}. Key achievements: {$review['achievements']}. Areas for improvement: {$review['areas_of_improvement']}.";
+                $summary = "Performance Review Summary for {$review->employee_name}: Rated {$review->rating}/5 for {$review->review_period}. Key achievements: {$review->achievements}. Areas for growth: {$review->areas_of_improvement}.";
             } else {
                 $data = json_decode($response, true);
                 $summary = $data['choices'][0]['message']['content'] ?? 'Summary generation completed.';
             }
 
-            MongoService::updateOne('performance_reviews', ['id' => $reviewId], ['ai_summary' => $summary]);
+            $review->update(['ai_summary' => $summary]);
             return response()->json(['ai_summary' => $summary]);
+
         } catch (\Exception $e) {
             Log::error("AI summary failed: " . $e->getMessage());
             return response()->json(['detail' => 'AI summary generation failed: ' . $e->getMessage()], 500);

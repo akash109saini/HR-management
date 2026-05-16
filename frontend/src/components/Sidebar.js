@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Building2, Users, Clock, CalendarDays, DollarSign,
   Briefcase, Star, Megaphone, LogOut, Sun, Moon, ChevronLeft, ChevronRight, Menu, X,
   Building, UserCircle, FileDown, Timer, Award, Layers, Calendar, UserX, UserMinus,
-  Shield, ClipboardCheck, CreditCard
+  Shield, ClipboardCheck, CreditCard, Settings2, PiggyBank
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
@@ -14,6 +14,7 @@ const navConfig = {
   super_admin: [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Tenants', path: '/tenants', icon: Building2 },
+    { label: 'Advance Salary', path: '/advance-salary', icon: PiggyBank },
     { label: 'Profile', path: '/profile', icon: UserCircle },
   ],
   hr_manager: [
@@ -25,8 +26,10 @@ const navConfig = {
     { label: 'Salary Slabs', path: '/salary-slabs', icon: Layers },
     { label: 'Attendance', path: '/attendance', icon: Clock },
     { label: 'Leave Mgmt', path: '/leave-management', icon: CalendarDays },
+    { label: 'Leave Settings', path: '/leave-settings', icon: Settings2 },
     { label: 'Holidays', path: '/holidays', icon: Calendar },
     { label: 'Payroll', path: '/payroll', icon: DollarSign },
+    { label: 'Advance Salary', path: '/advance-salary', icon: PiggyBank },
     { label: 'Recruitment', path: '/recruitment', icon: Briefcase },
     { label: 'Performance', path: '/performance', icon: Star },
     { label: 'Onboarding', path: '/onboarding', icon: ClipboardCheck },

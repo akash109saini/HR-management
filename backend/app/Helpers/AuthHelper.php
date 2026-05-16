@@ -5,7 +5,7 @@ namespace App\Helpers;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Illuminate\Http\Request;
-use App\Services\MongoService;
+use App\Models\User;
 
 class AuthHelper
 {
@@ -57,12 +57,27 @@ class AuthHelper
             $payload = JWT::decode($token, new Key(env('JWT_SECRET'), 'HS256'));
             if (($payload->type ?? '') !== 'access') return null;
 
-            $user = MongoService::findOne('users', ['_id' => MongoService::objectId($payload->sub)]);
+            if (($payload->role ?? '') === 'super_admin') {
+                $user = \App\Models\SuperAdmin::find($payload->sub);
+            } else {
+                if (!$payload->tenant_id) return null;
+                $tenant = \App\Models\Tenant::find($payload->tenant_id);
+                if (!$tenant) return null;
+
+                \Illuminate\Support\Facades\Config::set('database.connections.tenant.database', $tenant->database_name);
+                \Illuminate\Support\Facades\DB::purge('tenant');
+                \Illuminate\Support\Facades\DB::reconnect('tenant');
+
+                $user = User::find($payload->sub);
+            }
+
             if (!$user) return null;
 
-            $user['_id'] = (string)($user['_id'] ?? '');
-            unset($user['password_hash']);
-            return $user;
+            $arr = $user->toArray();
+            $arr['id'] = (string)$user->id;
+            $arr['role'] = $payload->role; // Ensure role is available
+            $arr['tenant_id'] = $payload->tenant_id ?? null;
+            return $arr;
         } catch (\Exception $e) {
             return null;
         }

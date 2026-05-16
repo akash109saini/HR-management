@@ -34,6 +34,9 @@
         <tr><td>PF Deduction</td><td>-${{ number_format($payslip['pf_deduction'], 2) }}</td></tr>
         <tr><td>Tax</td><td>-${{ number_format($payslip['tax'], 2) }}</td></tr>
         <tr><td>Absence Deduction</td><td>-${{ number_format($payslip['absence_deduction'], 2) }}</td></tr>
+        @if(isset($payslip['advance_deduction']) && $payslip['advance_deduction'] > 0)
+        <tr><td>Advance Deduction</td><td>-${{ number_format($payslip['advance_deduction'], 2) }}</td></tr>
+        @endif
         <tr><td><strong>Total Deductions</strong></td><td><strong>-${{ number_format($payslip['total_deductions'], 2) }}</strong></td></tr>
         <tr><td colspan="2"></td></tr>
         <tr class="total-row"><td><strong>Net Salary</strong></td><td><strong>${{ number_format($payslip['net_salary'], 2) }}</strong></td></tr>

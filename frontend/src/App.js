@@ -13,6 +13,7 @@ import HRDashboard from './pages/HR/Dashboard';
 import EmployeeManagement from './pages/HR/EmployeeManagement';
 import AttendanceMgmt from './pages/HR/AttendanceMgmt';
 import LeaveMgmt from './pages/HR/LeaveMgmt';
+import LeaveSettings from './pages/HR/LeaveSettings';
 import PayrollPage from './pages/HR/PayrollPage';
 import RecruitmentPage from './pages/HR/RecruitmentPage';
 import PerformancePage from './pages/HR/PerformancePage';
@@ -27,6 +28,7 @@ import ResignationManagement from './pages/HR/ResignationManagement';
 import RolesUsersManagement from './pages/HR/RolesUsersManagement';
 import OnboardingPage from './pages/HR/OnboardingPage';
 import BillingPage from './pages/HR/BillingPage';
+import AdvanceSalary from './pages/HR/AdvanceSalary';
 import EmpDashboard from './pages/Employee/Dashboard';
 import MyAttendance from './pages/Employee/MyAttendance';
 import MyLeaves from './pages/Employee/MyLeaves';
@@ -90,6 +92,7 @@ function AppRoutes() {
       <Route path="/holidays" element={<ProtectedRoute><HolidayManagement /></ProtectedRoute>} />
       <Route path="/attendance" element={<ProtectedRoute><AttendanceMgmt /></ProtectedRoute>} />
       <Route path="/leave-management" element={<ProtectedRoute><LeaveMgmt /></ProtectedRoute>} />
+      <Route path="/leave-settings" element={<ProtectedRoute><LeaveSettings /></ProtectedRoute>} />
       <Route path="/payroll" element={<ProtectedRoute><PayrollPage /></ProtectedRoute>} />
       <Route path="/recruitment" element={<ProtectedRoute><RecruitmentPage /></ProtectedRoute>} />
       <Route path="/performance" element={<ProtectedRoute><PerformancePage /></ProtectedRoute>} />
@@ -98,6 +101,7 @@ function AppRoutes() {
       <Route path="/roles-users" element={<ProtectedRoute><RolesUsersManagement /></ProtectedRoute>} />
       <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
       <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
+      <Route path="/advance-salary" element={<ProtectedRoute><AdvanceSalary /></ProtectedRoute>} />
 
       {/* Profile - accessible to all roles */}
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />

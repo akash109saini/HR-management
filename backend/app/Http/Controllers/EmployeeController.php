@@ -3,51 +3,101 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Services\MongoService;
+use App\Models\User;
+use App\Models\Tenant;
 use App\Helpers\AuthHelper;
+use Illuminate\Support\Str;
 
 class EmployeeController extends Controller
 {
-    private function generateEmployeeId(string $tenantId): string
+    private function generateEmployeeId(?string $tenantId = null): string
     {
-        $count = MongoService::count('users', ['tenant_id' => $tenantId, 'role' => ['$in' => ['employee', 'hr_manager']]]);
-        $tenant = MongoService::findOneNoId('tenants', ['id' => $tenantId]);
-        $prefix = $tenant ? strtoupper(substr($tenant['name'], 0, 4)) : 'EMP';
+        // In the tenant DB, we just count users
+        $count = User::whereIn('role', ['employee', 'hr_manager'])->count();
+        
+        // We need the tenant name from the landlord DB to prefix the ID correctly
+        $prefix = 'EMP';
+        if ($tenantId) {
+            $tenant = Tenant::on('landlord')->find($tenantId);
+            if ($tenant) {
+                $prefix = strtoupper(substr($tenant->name, 0, 4));
+            }
+        }
+        
         return "EMP-{$prefix}-" . str_pad($count + 1, 3, '0', STR_PAD_LEFT);
     }
 
     public function index(Request $request)
     {
         $user = $request->auth_user;
-        $filter = ['role' => ['$in' => ['employee', 'hr_manager']]];
-        if ($user['role'] === 'hr_manager') $filter['tenant_id'] = $user['tenant_id'] ?? '';
-        elseif ($user['role'] === 'super_admin' && $request->query('tenant_id')) $filter['tenant_id'] = $request->query('tenant_id');
-        elseif ($user['role'] === 'employee') return response()->json(['detail' => 'Not authorized'], 403);
+        if ($user['role'] === 'employee') {
+            return response()->json(['detail' => 'Not authorized'], 403);
+        }
 
-        $employees = MongoService::find('users', $filter, ['projection' => ['_id' => 0, 'password_hash' => 0]]);
+        // The tenant connection is already set by the AuthHelper/Middleware
+        $query = User::whereIn('role', ['employee', 'hr_manager']);
+        
+        $employees = $query->orderBy('name', 'asc')->get();
         return response()->json($employees);
     }
 
     public function store(Request $request)
     {
         $user = $request->auth_user;
-        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) return response()->json(['detail' => 'Not authorized'], 403);
-        $request->validate(['name' => 'required', 'email' => 'required|email', 'mobile' => 'required']);
+        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) {
+            return response()->json(['detail' => 'Not authorized'], 403);
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'mobile' => 'required|string|max:20',
+        ]);
 
         $tenantId = $user['tenant_id'] ?? $request->query('tenant_id');
-        if (!$tenantId) return response()->json(['detail' => 'Tenant ID required'], 400);
+        if (!$tenantId) {
+            return response()->json(['detail' => 'Tenant ID required'], 400);
+        }
 
-        $existing = MongoService::findOneNoId('users', ['email' => strtolower($request->email)]);
-        if ($existing) return response()->json(['detail' => 'Email already registered'], 400);
+        $existing = User::where('email', strtolower($request->email))->first();
+        if ($existing) {
+            return response()->json(['detail' => 'Email already registered'], 400);
+        }
 
         $employeeId = $request->employee_id_custom ?? $this->generateEmployeeId($tenantId);
 
-        $newUser = [
-            'email' => strtolower($request->email), 'name' => $request->name, 'mobile' => $request->mobile,
-            'employee_id' => $employeeId, 'password_hash' => AuthHelper::hashPassword($request->mobile),
-            'role' => 'employee', 'tenant_id' => $tenantId, 'department' => $request->department ?? '',
-            'designation' => $request->designation ?? '', 'salary' => (float)($request->salary ?? 0),
-            'shift' => $request->shift ?? '', 'joining_date' => $request->joining_date ?? now()->format('Y-m-d'),
+        $allTypes = \App\Models\LeaveType::all();
+        $initialBalance = [];
+        foreach ($allTypes as $lt) {
+            $initialBalance[strtolower($lt->name)] = $lt->days_allotted;
+        }
+
+        // Use custom balances from request if provided (merge with defaults)
+        if ($request->has('leave_balance')) {
+            $custom = $request->leave_balance;
+            foreach ($custom as $k => $v) {
+                $initialBalance[strtolower(trim($k))] = (float)$v;
+            }
+        }
+
+        // Fallback for demo if no types defined at all
+        if (empty($initialBalance)) {
+            $initialBalance = ['casual leave' => 12, 'sick leave' => 10, 'earned leave' => 15];
+        }
+
+        $userData = [
+            'name' => $request->name,
+            'email' => strtolower($request->email),
+            'mobile' => $request->mobile,
+            'employee_id' => $employeeId,
+            'password' => $request->mobile, // Cast to hashed automatically by model
+            'role' => 'employee',
+            'department' => $request->department ?? '',
+            'designation' => $request->designation ?? '',
+            'salary' => (float)($request->salary ?? 0),
+            'shift' => $request->shift ?? '',
+            'biometric_pin' => $request->biometric_pin ?? null,
+            'joining_date' => $request->joining_date ?? now()->format('Y-m-d'),
             'profile_image' => $request->profile_image ?? '',
             'bank_details' => [
                 'bank_name' => $request->bank_name ?? '',
@@ -55,56 +105,94 @@ class EmployeeController extends Controller
                 'ifsc_code' => $request->ifsc_code ?? '',
                 'account_holder' => $request->account_holder ?? $request->name,
             ],
-            'status' => 'active', 'first_login' => true,
-            'leave_balance' => ['casual' => 12, 'sick' => 10, 'earned' => 15],
-            'created_at' => now()->toISOString(), 'updated_at' => now()->toISOString(),
+            'status' => 'active',
+            'first_login' => true,
+            'leave_balance' => $initialBalance,
         ];
-        MongoService::insertOne('users', $newUser);
-        MongoService::increment('tenants', ['id' => $tenantId], 'employee_count');
+
+        $newUser = User::create($userData);
+
+        // Increment employee count in Landlord DB
+        $tenant = Tenant::on('landlord')->find($tenantId);
+        if ($tenant) {
+            $tenant->increment('employee_count');
+        }
 
         // Send welcome email
-        \App\Services\EmailService::sendWelcomeEmail($newUser['email'], $request->name, $employeeId, $request->mobile);
+        try {
+            \App\Services\EmailService::sendWelcomeEmail($newUser->email, $newUser->name, $employeeId, $request->mobile);
+        } catch (\Exception $e) {
+            // Log if email fails, but don't break the process
+            \Illuminate\Support\Facades\Log::error("Failed to send welcome email: " . $e->getMessage());
+        }
 
-        unset($newUser['password_hash']);
-        $newUser['initial_password'] = $request->mobile;
-        $newUser['message'] = "Employee created. Initial password is the mobile number: {$request->mobile}";
-        return response()->json($newUser, 201);
+        $response = $newUser->toArray();
+        $response['initial_password'] = $request->mobile;
+        $response['message'] = "Employee created. Initial password is the mobile number: {$request->mobile}";
+        
+        return response()->json($response, 201);
     }
 
     public function show(Request $request, string $employeeId)
     {
         $user = $request->auth_user;
-        $emp = MongoService::findOneNoId('users', ['employee_id' => $employeeId]);
-        if (!$emp) return response()->json(['detail' => 'Employee not found'], 404);
-        unset($emp['password_hash']);
-        if ($user['role'] === 'employee' && ($user['employee_id'] ?? '') !== $employeeId) return response()->json(['detail' => 'Not authorized'], 403);
+        $emp = User::where('employee_id', $employeeId)->first();
+        
+        if (!$emp) {
+            return response()->json(['detail' => 'Employee not found'], 404);
+        }
+        
+        if ($user['role'] === 'employee' && ($user['employee_id'] ?? '') !== $employeeId) {
+            return response()->json(['detail' => 'Not authorized'], 403);
+        }
+        
         return response()->json($emp);
     }
 
     public function update(Request $request, string $employeeId)
     {
         $user = $request->auth_user;
-        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) return response()->json(['detail' => 'Not authorized'], 403);
-        $updates = array_filter($request->only(['name', 'department', 'designation', 'salary', 'mobile', 'status', 'shift', 'joining_date', 'profile_image', 'bank_name', 'account_number', 'ifsc_code', 'account_holder']), fn($v) => $v !== null);
+        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) {
+            return response()->json(['detail' => 'Not authorized'], 403);
+        }
+
+        $emp = User::where('employee_id', $employeeId)->first();
+        if (!$emp) {
+            return response()->json(['detail' => 'Employee not found'], 404);
+        }
+
+        $updates = array_filter($request->only([
+            'name', 'department', 'designation', 'salary', 'mobile', 'status', 
+            'shift', 'joining_date', 'profile_image', 'biometric_pin', 'bank_name', 
+            'account_number', 'ifsc_code', 'account_holder', 'leave_balance'
+        ]), fn($v) => $v !== null);
+
         if (isset($updates['bank_name']) || isset($updates['account_number'])) {
             $updates['bank_details'] = [
-                'bank_name' => $updates['bank_name'] ?? '', 'account_number' => $updates['account_number'] ?? '',
-                'ifsc_code' => $updates['ifsc_code'] ?? '', 'account_holder' => $updates['account_holder'] ?? '',
+                'bank_name' => $updates['bank_name'] ?? $emp->bank_details['bank_name'] ?? '',
+                'account_number' => $updates['account_number'] ?? $emp->bank_details['account_number'] ?? '',
+                'ifsc_code' => $updates['ifsc_code'] ?? $emp->bank_details['ifsc_code'] ?? '',
+                'account_holder' => $updates['account_holder'] ?? $emp->bank_details['account_holder'] ?? '',
             ];
             unset($updates['bank_name'], $updates['account_number'], $updates['ifsc_code'], $updates['account_holder']);
         }
-        $updates['updated_at'] = now()->toISOString();
-        MongoService::updateOne('users', ['employee_id' => $employeeId], $updates);
-        $emp = MongoService::findOneNoId('users', ['employee_id' => $employeeId]);
-        unset($emp['password_hash']);
-        return response()->json($emp);
+
+        if (isset($updates['leave_balance'])) {
+            $normalized = [];
+            foreach ($updates['leave_balance'] as $k => $v) {
+                $normalized[strtolower(trim($k))] = (float)$v;
+            }
+            $updates['leave_balance'] = $normalized;
+        }
+
+        $emp->update($updates);
+        return response()->json($emp->fresh());
     }
 
     public function suggestId(Request $request)
     {
         $user = $request->auth_user;
-        $tenantId = $user['tenant_id'] ?? $request->query('tenant_id', '');
-        if (!$tenantId) return response()->json(['suggested_id' => 'EMP-001']);
+        $tenantId = $user['tenant_id'] ?? $request->query('tenant_id');
         return response()->json(['suggested_id' => $this->generateEmployeeId($tenantId)]);
     }
 }

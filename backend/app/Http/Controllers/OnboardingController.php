@@ -3,7 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Services\MongoService;
+use App\Models\OnboardingTemplate;
+use App\Models\OnboardingChecklist;
 use Illuminate\Support\Str;
 
 class OnboardingController extends Controller
@@ -16,87 +17,112 @@ class OnboardingController extends Controller
 
         if ($employeeId) {
             // Get specific employee's onboarding checklist
-            $checklist = MongoService::findOneNoId('onboarding_checklists', ['employee_id' => $employeeId]);
+            $checklist = OnboardingChecklist::where('employee_id', $employeeId)->first();
+            
             if (!$checklist) {
-                // Create from template
-                $template = MongoService::find('onboarding_templates', ['tenant_id' => $user['tenant_id'] ?? '']);
-                $items = array_map(fn($t) => ['id' => (string)Str::uuid(), 'title' => $t['title'], 'description' => $t['description'] ?? '', 'category' => $t['category'] ?? 'general', 'completed' => false, 'completed_at' => null], $template);
-                $checklist = [
-                    'id' => (string)Str::uuid(), 'employee_id' => $employeeId, 'tenant_id' => $user['tenant_id'] ?? '',
-                    'items' => $items, 'progress' => 0, 'status' => 'in_progress', 'created_at' => now()->toISOString(),
-                ];
-                MongoService::insertOne('onboarding_checklists', $checklist);
+                // Create from tenant-specific template
+                $template = OnboardingTemplate::orderBy('order', 'asc')->get();
+                
+                $items = array_map(function($t) {
+                    return [
+                        'id' => (string)Str::uuid(), 
+                        'title' => $t['title'], 
+                        'description' => $t['description'] ?? '', 
+                        'category' => $t['category'] ?? 'general', 
+                        'completed' => false, 
+                        'completed_at' => null
+                    ];
+                }, $template->toArray());
+
+                $checklist = OnboardingChecklist::create([
+                    'employee_id' => $employeeId,
+                    'items' => $items, 
+                    'progress' => 0, 
+                    'status' => 'in_progress',
+                ]);
             }
             return response()->json($checklist);
         }
 
-        // List all onboarding checklists
-        $filter = [];
-        if ($user['role'] === 'hr_manager') $filter['tenant_id'] = $user['tenant_id'] ?? '';
-        elseif ($user['role'] === 'employee') $filter['employee_id'] = $user['employee_id'] ?? '';
-        return response()->json(MongoService::find('onboarding_checklists', $filter));
+        // List all onboarding checklists for this tenant
+        $query = OnboardingChecklist::query();
+        if ($user['role'] === 'employee') {
+            $query->where('employee_id', $user['employee_id'] ?? '');
+        }
+
+        return response()->json($query->orderBy('created_at', 'desc')->get());
     }
 
     // Update checklist item status
     public function updateItem(Request $request, string $checklistId, string $itemId)
     {
-        $checklist = MongoService::findOneNoId('onboarding_checklists', ['id' => $checklistId]);
-        if (!$checklist) return response()->json(['detail' => 'Checklist not found'], 404);
+        $checklist = OnboardingChecklist::find($checklistId);
+        if (!$checklist) {
+            return response()->json(['detail' => 'Checklist not found'], 404);
+        }
 
-        $items = $checklist['items'] ?? [];
+        $items = $checklist->items ?? [];
         $updated = false;
+        
         foreach ($items as &$item) {
             if (($item['id'] ?? '') === $itemId) {
                 $item['completed'] = $request->completed ?? true;
-                $item['completed_at'] = $item['completed'] ? now()->toISOString() : null;
+                $item['completed_at'] = $item['completed'] ? now()->toIso8601String() : null;
                 $updated = true;
                 break;
             }
         }
-        if (!$updated) return response()->json(['detail' => 'Item not found'], 404);
+        
+        if (!$updated) {
+            return response()->json(['detail' => 'Item not found'], 404);
+        }
 
         $completedCount = count(array_filter($items, fn($i) => $i['completed'] ?? false));
         $progress = count($items) > 0 ? round(($completedCount / count($items)) * 100) : 0;
         $status = $progress >= 100 ? 'completed' : 'in_progress';
 
-        MongoService::collection('onboarding_checklists')->updateOne(
-            ['id' => $checklistId],
-            ['$set' => ['items' => $items, 'progress' => $progress, 'status' => $status]]
-        );
+        $checklist->update([
+            'items' => $items, 
+            'progress' => (int)$progress, 
+            'status' => $status
+        ]);
 
-        $checklist['items'] = $items;
-        $checklist['progress'] = $progress;
-        $checklist['status'] = $status;
-        return response()->json($checklist);
+        return response()->json($checklist->fresh());
     }
 
     // Manage onboarding templates
     public function listTemplates(Request $request)
     {
-        $user = $request->auth_user;
-        return response()->json(MongoService::find('onboarding_templates', ['tenant_id' => $user['tenant_id'] ?? '']));
+        return response()->json(OnboardingTemplate::orderBy('order', 'asc')->get());
     }
 
     public function createTemplate(Request $request)
     {
         $user = $request->auth_user;
-        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) return response()->json(['detail' => 'Not authorized'], 403);
+        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) {
+            return response()->json(['detail' => 'Not authorized'], 403);
+        }
+
         $request->validate(['title' => 'required']);
-        $template = [
-            'id' => (string)Str::uuid(), 'tenant_id' => $user['tenant_id'] ?? '',
-            'title' => $request->title, 'description' => $request->description ?? '',
-            'category' => $request->category ?? 'general', 'order' => (int)($request->order ?? 0),
-            'created_at' => now()->toISOString(),
-        ];
-        MongoService::insertOne('onboarding_templates', $template);
+
+        $template = OnboardingTemplate::create([
+            'title' => $request->title, 
+            'description' => $request->description ?? '',
+            'category' => $request->category ?? 'general', 
+            'order' => (int)($request->order ?? 0),
+        ]);
+
         return response()->json($template, 201);
     }
 
     public function deleteTemplate(Request $request, string $id)
     {
         $user = $request->auth_user;
-        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) return response()->json(['detail' => 'Not authorized'], 403);
-        MongoService::deleteOne('onboarding_templates', ['id' => $id]);
+        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) {
+            return response()->json(['detail' => 'Not authorized'], 403);
+        }
+
+        OnboardingTemplate::destroy($id);
         return response()->json(['message' => 'Deleted']);
     }
 }

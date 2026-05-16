@@ -6,6 +6,7 @@ use App\Http\Controllers\TenantController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\LeaveController;
+use App\Http\Controllers\LeaveTypeController;
 use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\RecruitmentController;
 use App\Http\Controllers\PerformanceController;
@@ -25,6 +26,9 @@ use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\RoleUserController;
 use App\Http\Controllers\BillingController;
+use App\Http\Controllers\SalaryAdvanceController;
+use App\Http\Controllers\ADMSController;
+use App\Http\Controllers\BiometricDeviceController;
 
 // Health check
 Route::get('/', fn() => response()->json(['message' => 'HRMS API v1.0 (Laravel)']));
@@ -36,6 +40,14 @@ Route::prefix('auth')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/refresh', [AuthController::class, 'refresh']);
+});
+
+// ADMS Biometric Device Endpoints (NO auth — device cannot send JWT tokens)
+// The ESSL Aiface Mars pushes attendance data to these endpoints via HTTP
+Route::prefix('iclock')->group(function () {
+    Route::match(['get', 'post'], '/cdata', [ADMSController::class, 'handleCdata']);
+    Route::get('/getrequest', [ADMSController::class, 'getRequest']);
+    Route::post('/devicecmd', [ADMSController::class, 'commandResult']);
 });
 
 // Protected routes
@@ -71,12 +83,22 @@ Route::middleware('jwt.auth')->group(function () {
     Route::get('/leaves', [LeaveController::class, 'index']);
     Route::get('/leaves/balance', [LeaveController::class, 'balance']);
     Route::put('/leaves/{leaveId}', [LeaveController::class, 'update']);
+    Route::post('/leaves/{leaveId}/rollover', [LeaveController::class, 'rollover']);
+    Route::get('/leave-types', [LeaveTypeController::class, 'index']);
+    Route::post('/leave-types', [LeaveTypeController::class, 'store']);
+    Route::put('/leave-types/{id}', [LeaveTypeController::class, 'update']);
+    Route::delete('/leave-types/{id}', [LeaveTypeController::class, 'destroy']);
 
     // Payroll
     Route::post('/payroll/generate', [PayrollController::class, 'generate']);
     Route::post('/payroll/generate-bulk', [PayrollController::class, 'generateBulk']);
     Route::get('/payroll', [PayrollController::class, 'index']);
     Route::get('/payroll/{payslipId}/pdf', [PayrollController::class, 'downloadPdf']);
+
+    // Salary Advances
+    Route::get('/salary-advances', [SalaryAdvanceController::class, 'index']);
+    Route::post('/salary-advances', [SalaryAdvanceController::class, 'store']);
+    Route::delete('/salary-advances/{id}', [SalaryAdvanceController::class, 'destroy']);
 
     // Recruitment
     Route::get('/recruitment/jobs', [RecruitmentController::class, 'listJobs']);
@@ -179,4 +201,16 @@ Route::middleware('jwt.auth')->group(function () {
     Route::post('/billing/create-order', [BillingController::class, 'createOrder']);
     Route::post('/billing/verify-payment', [BillingController::class, 'verifyPayment']);
     Route::get('/billing/history', [BillingController::class, 'billingHistory']);
+
+    // Biometric Device Management
+    Route::prefix('biometric')->group(function () {
+        Route::get('/devices', [BiometricDeviceController::class, 'index']);
+        Route::post('/devices', [BiometricDeviceController::class, 'store']);
+        Route::put('/devices/{id}', [BiometricDeviceController::class, 'update']);
+        Route::delete('/devices/{id}', [BiometricDeviceController::class, 'destroy']);
+        Route::get('/raw-logs', [BiometricDeviceController::class, 'rawLogs']);
+        Route::post('/sync', [BiometricDeviceController::class, 'syncLogs']);
+        Route::post('/simulate-punch', [BiometricDeviceController::class, 'simulatePunch']);
+        Route::get('/employees-with-pin', [BiometricDeviceController::class, 'employeesWithPin']);
+    });
 });

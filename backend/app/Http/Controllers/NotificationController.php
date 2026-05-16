@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Services\MongoService;
+use App\Models\Notification;
 use Illuminate\Support\Str;
 
 class NotificationController extends Controller
@@ -11,28 +11,44 @@ class NotificationController extends Controller
     public function index(Request $request)
     {
         $user = $request->auth_user;
-        $empId = $user['employee_id'] ?? $user['email'];
-        $filter = ['user_id' => $empId];
-        // HR also gets tenant-wide notifications
+        $userId = $user['id'];
+
+        $query = Notification::query();
+        
+        // HR also gets tenant-wide notifications (ones without a specific user_id)
         if ($user['role'] === 'hr_manager') {
-            $filter = ['$or' => [['user_id' => $empId], ['tenant_id' => $user['tenant_id'] ?? '', 'user_id' => ['$exists' => false]]]];
+            $query->where(function($q) use ($userId) {
+                $q->where('user_id', $userId)
+                  ->orWhereNull('user_id');
+            });
+        } else {
+            $query->where('user_id', $userId);
         }
-        $notifications = MongoService::find('notifications', $filter, ['projection' => ['_id' => 0], 'sort' => ['created_at' => -1], 'limit' => 50]);
-        $unreadCount = MongoService::count('notifications', array_merge($filter, ['read' => false]));
-        return response()->json(['notifications' => $notifications, 'unread_count' => $unreadCount]);
+
+        $notifications = $query->orderBy('created_at', 'desc')->limit(50)->get();
+        $unreadCount = $query->where('is_read', false)->count();
+
+        return response()->json([
+            'notifications' => $notifications, 
+            'unread_count' => $unreadCount
+        ]);
     }
 
     public function markRead(Request $request, string $id)
     {
-        MongoService::updateOne('notifications', ['id' => $id], ['read' => true]);
+        Notification::where('id', $id)->update(['is_read' => true]);
         return response()->json(['message' => 'Marked as read']);
     }
 
     public function markAllRead(Request $request)
     {
         $user = $request->auth_user;
-        $empId = $user['employee_id'] ?? $user['email'];
-        MongoService::collection('notifications')->updateMany(['user_id' => $empId, 'read' => false], ['$set' => ['read' => true]]);
+        $userId = $user['id'];
+        
+        Notification::where('user_id', $userId)
+                    ->where('is_read', false)
+                    ->update(['is_read' => true]);
+                    
         return response()->json(['message' => 'All marked as read']);
     }
 }

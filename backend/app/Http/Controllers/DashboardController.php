@@ -3,7 +3,15 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Services\MongoService;
+use App\Models\Tenant;
+use App\Models\User;
+use App\Models\Leave;
+use App\Models\PunchCorrection;
+use App\Models\Attendance;
+use App\Models\JobPosting;
+use App\Models\Applicant;
+use App\Models\Announcement;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -15,68 +23,80 @@ class DashboardController extends Controller
         $currentMonth = now()->format('Y-m');
 
         if ($role === 'super_admin') {
-            $totalTenants = MongoService::count('tenants', ['status' => ['$ne' => 'deleted']]);
-            $activeTenants = MongoService::count('tenants', ['status' => 'active']);
-            $totalEmployees = MongoService::count('users', ['role' => ['$in' => ['employee', 'hr_manager']]]);
-            $totalJobs = MongoService::count('job_postings', ['status' => 'open']);
-            $tenants = MongoService::find('tenants', ['status' => ['$ne' => 'deleted']]);
+            $totalTenants = Tenant::where('status', '!=', 'deleted')->count();
+            $activeTenants = Tenant::where('status', 'active')->count();
+            
+            // For SaaS, aggregating employees across all DBs is complex. 
+            // We'll show landlord-level stats.
+            $tenants = Tenant::where('status', '!=', 'deleted')->limit(5)->get();
 
-            $planDistribution = [];
-            foreach ($tenants as $t) {
-                $plan = $t['subscription_plan'] ?? 'basic';
-                $planDistribution[$plan] = ($planDistribution[$plan] ?? 0) + 1;
-            }
+            $planDistribution = Tenant::select('subscription_plan', DB::raw('count(*) as count'))
+                ->groupBy('subscription_plan')
+                ->get()
+                ->pluck('count', 'subscription_plan')
+                ->toArray();
 
             return response()->json([
-                'role' => 'super_admin', 'total_tenants' => $totalTenants,
-                'active_tenants' => $activeTenants, 'total_employees' => $totalEmployees,
-                'total_open_jobs' => $totalJobs, 'plan_distribution' => $planDistribution,
-                'recent_tenants' => array_slice($tenants, 0, 5),
+                'role' => 'super_admin', 
+                'total_tenants' => $totalTenants,
+                'active_tenants' => $activeTenants, 
+                'plan_distribution' => $planDistribution,
+                'recent_tenants' => $tenants,
             ]);
         }
 
         if ($role === 'hr_manager') {
-            $tenantId = $user['tenant_id'] ?? '';
-            $totalEmployees = MongoService::count('users', ['tenant_id' => $tenantId, 'role' => ['$in' => ['employee', 'hr_manager']]]);
-            $pendingLeaves = MongoService::count('leaves', ['tenant_id' => $tenantId, 'status' => 'pending']);
-            $pendingCorrections = MongoService::count('punch_corrections', ['tenant_id' => $tenantId, 'status' => 'pending']);
-            $todayAttendance = MongoService::count('attendance', ['tenant_id' => $tenantId, 'date' => $today]);
-            $openJobs = MongoService::count('job_postings', ['tenant_id' => $tenantId, 'status' => 'open']);
-            $totalApplicants = MongoService::count('applicants', ['tenant_id' => $tenantId]);
+            $totalEmployees = User::whereIn('role', ['employee', 'hr_manager'])->count();
+            $pendingLeaves = Leave::where('status', 'pending')->count();
+            $pendingCorrections = PunchCorrection::where('status', 'pending')->count();
+            $todayAttendance = Attendance::where('date', $today)->count();
+            $openJobs = JobPosting::where('status', 'open')->count();
+            $totalApplicants = Applicant::count();
 
-            $recentLeaves = MongoService::find('leaves', ['tenant_id' => $tenantId, 'status' => 'pending'], ['projection' => ['_id' => 0], 'sort' => ['created_at' => -1], 'limit' => 5]);
-            $recentCorrections = MongoService::find('punch_corrections', ['tenant_id' => $tenantId, 'status' => 'pending'], ['projection' => ['_id' => 0], 'sort' => ['created_at' => -1], 'limit' => 5]);
+            $recentLeaves = Leave::where('status', 'pending')->orderBy('created_at', 'desc')->limit(5)->get();
+            $recentCorrections = PunchCorrection::where('status', 'pending')->orderBy('created_at', 'desc')->limit(5)->get();
 
-            $attendanceRecords = MongoService::find('attendance', ['tenant_id' => $tenantId, 'date' => ['$regex' => "^{$currentMonth}"]], ['projection' => ['_id' => 0, 'date' => 1]]);
-            $byDate = [];
-            foreach ($attendanceRecords as $r) { $d = $r['date']; $byDate[$d] = ($byDate[$d] ?? 0) + 1; }
-            ksort($byDate);
-            $attendanceTrend = array_map(fn($k, $v) => ['date' => $k, 'count' => $v], array_keys($byDate), array_values($byDate));
+            $attendanceTrending = Attendance::where('date', 'like', "{$currentMonth}%")
+                ->select('date', DB::raw('count(*) as count'))
+                ->groupBy('date')
+                ->orderBy('date', 'asc')
+                ->get();
 
             return response()->json([
-                'role' => 'hr_manager', 'total_employees' => $totalEmployees,
-                'pending_leaves' => $pendingLeaves, 'pending_corrections' => $pendingCorrections,
-                'today_attendance' => $todayAttendance, 'open_jobs' => $openJobs,
-                'total_applicants' => $totalApplicants, 'recent_pending_leaves' => $recentLeaves,
-                'recent_pending_corrections' => $recentCorrections, 'attendance_trend' => $attendanceTrend,
+                'role' => 'hr_manager', 
+                'total_employees' => $totalEmployees,
+                'pending_leaves' => $pendingLeaves, 
+                'pending_corrections' => $pendingCorrections,
+                'today_attendance' => $todayAttendance, 
+                'open_jobs' => $openJobs,
+                'total_applicants' => $totalApplicants, 
+                'recent_pending_leaves' => $recentLeaves,
+                'recent_pending_corrections' => $recentCorrections, 
+                'attendance_trend' => $attendanceTrending,
             ]);
         }
 
-        // Employee
-        $tenantId = $user['tenant_id'] ?? '';
-        $empId = $user['employee_id'] ?? $user['email'];
-        $todayRecord = MongoService::findOneNoId('attendance', ['user_id' => $empId, 'date' => $today, 'tenant_id' => $tenantId]);
-        $userDoc = MongoService::findOneNoId('users', ['email' => $user['email']]);
-        $leaveBalance = $userDoc['leave_balance'] ?? ['casual' => 12, 'sick' => 10, 'earned' => 15];
-        $pendingLeaves = MongoService::count('leaves', ['user_id' => $empId, 'status' => 'pending']);
-        $pendingCorrections = MongoService::count('punch_corrections', ['user_id' => $empId, 'status' => 'pending']);
-        $monthAttendance = MongoService::count('attendance', ['user_id' => $empId, 'tenant_id' => $tenantId, 'date' => ['$regex' => "^{$currentMonth}"], 'clock_in' => ['$ne' => null]]);
-        $recentAnnouncements = MongoService::find('announcements', ['tenant_id' => $tenantId], ['projection' => ['_id' => 0], 'sort' => ['created_at' => -1], 'limit' => 3]);
+        // Employee Dashboard
+        $empId = $user['id'];
+        $todayRecord = Attendance::where('user_id', $empId)->where('date', $today)->first();
+        $userDoc = User::where('email', $user['email'])->first();
+        
+        $pendingLeaves = Leave::where('user_id', $empId)->where('status', 'pending')->count();
+        $pendingCorrections = PunchCorrection::where('user_id', $empId)->where('status', 'pending')->count();
+        $monthAttendance = Attendance::where('user_id', $user['id'])
+            ->where('date', 'like', "{$currentMonth}%")
+            ->whereNotNull('clock_in')
+            ->count();
+            
+        $recentAnnouncements = Announcement::orderBy('created_at', 'desc')->limit(3)->get();
 
         return response()->json([
-            'role' => 'employee', 'today_attendance' => $todayRecord,
-            'leave_balance' => $leaveBalance, 'pending_leaves' => $pendingLeaves,
-            'pending_corrections' => $pendingCorrections, 'days_present_this_month' => $monthAttendance,
+            'role' => 'employee', 
+            'today_attendance' => $todayRecord,
+            'leave_balance' => $userDoc->leave_balance ?? ['casual' => 12, 'sick' => 10, 'earned' => 15], 
+            'pending_leaves' => $pendingLeaves,
+            'pending_corrections' => $pendingCorrections, 
+            'days_present_this_month' => $monthAttendance,
             'recent_announcements' => $recentAnnouncements,
         ]);
     }
