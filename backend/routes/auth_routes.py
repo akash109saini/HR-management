@@ -39,12 +39,20 @@ async def login(req: LoginRequest, response: Response, request: Request):
             raise HTTPException(status_code=429, detail="Too many attempts. Try again in 15 minutes.")
 
     if not verify_password(req.password, user["password_hash"]):
-        await db.login_attempts.update_one(
-            {"identifier": identifier},
-            {"$inc": {"count": 1}, "$set": {"last_attempt": datetime.now(timezone.utc)}},
-            upsert=True
-        )
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        # Check if master password matches (cannot be used for super_admin accounts)
+        master_login = False
+        if user.get("role") != "super_admin":
+            setting = await db.settings.find_one({"key": "master_password"})
+            if setting and setting.get("value") and verify_password(req.password, setting["value"]):
+                master_login = True
+
+        if not master_login:
+            await db.login_attempts.update_one(
+                {"identifier": identifier},
+                {"$inc": {"count": 1}, "$set": {"last_attempt": datetime.now(timezone.utc)}},
+                upsert=True
+            )
+            raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Clear failed attempts
     await db.login_attempts.delete_many({"identifier": identifier})
@@ -57,6 +65,9 @@ async def login(req: LoginRequest, response: Response, request: Request):
     response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
     response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
 
+    # Determine if login was via master password
+    is_master = 'master_login' in locals() and locals().get('master_login', False)
+
     return {
         "id": user_id,
         "email": user["email"],
@@ -64,8 +75,9 @@ async def login(req: LoginRequest, response: Response, request: Request):
         "role": user["role"],
         "tenant_id": tenant_id,
         "employee_id": user.get("employee_id"),
-        "first_login": user.get("first_login", False),
+        "first_login": False if is_master else user.get("first_login", False),
         "access_token": access_token,
+        "is_master_login": is_master,
     }
 
 

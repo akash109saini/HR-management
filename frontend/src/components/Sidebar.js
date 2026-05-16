@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Building2, Users, Clock, CalendarDays, DollarSign,
   Briefcase, Star, Megaphone, LogOut, Sun, Moon, ChevronLeft, ChevronRight, Menu, X,
   Building, UserCircle, FileDown, Timer, Award, Layers, Calendar, UserX, UserMinus,
-  Shield, ClipboardCheck, CreditCard, Settings2, PiggyBank
+  Shield, ClipboardCheck, CreditCard, Settings2, PiggyBank, KeyRound
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
@@ -15,6 +15,7 @@ const navConfig = {
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Tenants', path: '/tenants', icon: Building2 },
     { label: 'Advance Salary', path: '/advance-salary', icon: PiggyBank },
+    { label: 'Security', path: '/security-settings', icon: KeyRound },
     { label: 'Profile', path: '/profile', icon: UserCircle },
   ],
   hr_manager: [

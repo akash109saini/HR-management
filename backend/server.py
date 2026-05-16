@@ -19,6 +19,7 @@ from routes.performance_routes import router as performance_router
 from routes.announcement_routes import router as announcement_router
 from routes.dashboard_routes import router as dashboard_router
 from routes.user_routes import router as user_router
+from routes.settings_routes import router as settings_router
 from seed import seed_database
 
 # Configure logging
@@ -52,6 +53,7 @@ app.include_router(performance_router)
 app.include_router(announcement_router)
 app.include_router(dashboard_router)
 app.include_router(user_router)
+app.include_router(settings_router)
 
 
 @app.get("/api")
