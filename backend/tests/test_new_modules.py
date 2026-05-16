@@ -12,7 +12,7 @@ import time
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://multi-org-hr.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://under-run.preview.emergentagent.com").rstrip("/")
 
 SUPER_ADMIN = {"email": "admin@hrms.com", "password": "admin123"}
 HR_ACME = {"email": "hr@acmecorp.com", "password": "1Akash@@"}

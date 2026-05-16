@@ -474,12 +474,12 @@ async def get_status():
     return {
         "configured": IS_CONFIGURED,
         "phone_number_id": WA_PHONE_ID if IS_CONFIGURED else None,
-        "webhook_url": "https://multi-org-hr.preview.emergentagent.com/api/whatsapp/webhook",
+        "webhook_url": "https://under-run.preview.emergentagent.com/api/whatsapp/webhook",
         "verify_token": WA_VERIFY_TKN,
         "test_send_url": "POST /api/whatsapp/send",
         "setup_guide": {
             "step1": "Go to developers.facebook.com → Your App → WhatsApp → Configuration",
-            "step2": f"Set Callback URL: https://multi-org-hr.preview.emergentagent.com/api/whatsapp/webhook",
+            "step2": f"Set Callback URL: https://under-run.preview.emergentagent.com/api/whatsapp/webhook",
             "step3": f"Set Verify Token: {WA_VERIFY_TKN}",
             "step4": "Subscribe to: messages, message_status_updates",
             "step5": "Click Verify & Save",

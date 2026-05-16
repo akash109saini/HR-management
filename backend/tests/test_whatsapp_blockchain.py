@@ -5,7 +5,7 @@ import os
 import requests
 import pytest
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://multi-org-hr.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://under-run.preview.emergentagent.com").rstrip("/")
 WA_VERIFY_TOKEN = "hrms_whatsapp_verify_token_2026"
 EXPECTED_WALLET = "0xb5aB7975a1C4aEB9f589fB0794d1ef7ed142Ff39"
 

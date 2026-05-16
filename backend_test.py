@@ -4,7 +4,7 @@ from datetime import datetime
 import json
 
 class HRMSAPITester:
-    def __init__(self, base_url="https://multi-org-hr.preview.emergentagent.com"):
+    def __init__(self, base_url="https://under-run.preview.emergentagent.com"):
         self.base_url = base_url
         self.session = requests.Session()
         self.tests_run = 0
