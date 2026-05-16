@@ -23,6 +23,7 @@ from routes.settings_routes import router as settings_router
 from routes.ai_routes import router as ai_router
 from routes.whatsapp_routes import router as whatsapp_router
 from routes.blockchain_routes import router as blockchain_router
+from routes.demo_routes import router as demo_router
 from seed import seed_database
 
 # Configure logging
@@ -60,6 +61,7 @@ app.include_router(settings_router)
 app.include_router(ai_router)
 app.include_router(whatsapp_router)
 app.include_router(blockchain_router)
+app.include_router(demo_router)
 
 
 @app.get("/api")

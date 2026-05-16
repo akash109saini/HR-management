@@ -6,7 +6,8 @@ import {
   LayoutDashboard, Building2, Users, Clock, CalendarDays, DollarSign,
   Briefcase, Star, Megaphone, LogOut, Sun, Moon, ChevronLeft, ChevronRight, Menu, X,
   Building, UserCircle, FileDown, Timer, Award, Layers, Calendar, UserX, UserMinus,
-  Shield, ClipboardCheck, CreditCard, Settings2, PiggyBank, KeyRound, Sparkles, BadgeCheck
+  Shield, ClipboardCheck, CreditCard, Settings2, PiggyBank, KeyRound, Sparkles, BadgeCheck,
+  MessageSquare, Heart, Database
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
@@ -17,6 +18,7 @@ const navConfig = {
     { label: 'Advance Salary', path: '/advance-salary', icon: PiggyBank },
     { label: 'Security', path: '/security-settings', icon: KeyRound },
     { label: 'Blockchain', path: '/blockchain-credentials', icon: BadgeCheck },
+    { label: 'Demo Seeder', path: '/demo-seeder', icon: Database },
     { label: 'Profile', path: '/profile', icon: UserCircle },
   ],
   hr_manager: [
@@ -40,6 +42,8 @@ const navConfig = {
     { label: 'Roles & Users', path: '/roles-users', icon: Shield },
     { label: 'Announcements', path: '/announcements', icon: Megaphone },
     { label: 'AI Assistant', path: '/ai-assistant', icon: Sparkles },
+    { label: 'WhatsApp Center', path: '/whatsapp-admin', icon: MessageSquare },
+    { label: 'Sentiment', path: '/sentiment-dashboard', icon: Heart },
     { label: 'Blockchain Credentials', path: '/blockchain-credentials', icon: BadgeCheck },
     { label: 'Billing', path: '/billing', icon: CreditCard },
     { label: 'Profile', path: '/profile', icon: UserCircle },
@@ -50,6 +54,7 @@ const navConfig = {
     { label: 'Leaves', path: '/my-leaves', icon: CalendarDays },
     { label: 'Payslips', path: '/my-payslips', icon: DollarSign },
     { label: 'AI Assistant', path: '/ai-assistant', icon: Sparkles },
+    { label: 'Pulse / Feedback', path: '/sentiment-dashboard', icon: Heart },
     { label: 'My Credentials', path: '/blockchain-credentials', icon: BadgeCheck },
     { label: 'Announcements', path: '/announcements', icon: Megaphone },
     { label: 'Profile', path: '/profile', icon: UserCircle },

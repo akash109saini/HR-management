@@ -245,6 +245,162 @@ Respond with JSON:
         raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
 
 
+# ─── FEEDBACK COLLECTION & SENTIMENT DASHBOARD ────────────────────────────────
+
+class FeedbackRequest(BaseModel):
+    text: str
+    category: Optional[str] = "general"  # general | work_environment | management | compensation | growth
+    anonymous: bool = True
+    rating: Optional[int] = None  # 1..5
+
+
+@router.post("/feedback")
+async def submit_feedback(req: FeedbackRequest, request: Request):
+    """Employee submits feedback. AI auto-analyses sentiment. Stored for HR dashboard."""
+    user = await get_current_user(request)
+
+    sentiment = {}
+    try:
+        chat = LlmChat(
+            api_key=LLM_KEY,
+            session_id=f"fb_{uuid.uuid4()}",
+            system_message="You are a sentiment analysis AI. Respond with valid JSON only.",
+        ).with_model(AI_PROVIDER, AI_MODEL)
+        prompt = f"""Analyze this employee feedback. Category: {req.category}.
+
+Text: "{req.text}"
+
+Respond JSON:
+{{
+  "sentiment": "<positive|negative|neutral|mixed>",
+  "score": <-1.0 to 1.0>,
+  "confidence": <0.0 to 1.0>,
+  "emotions": ["..."],
+  "key_themes": ["..."],
+  "summary": "brief",
+  "action_needed": <true|false>,
+  "recommended_action": "..."
+}}"""
+        resp = await chat.send_message(UserMessage(text=prompt))
+        try:
+            sentiment = json.loads(resp)
+        except json.JSONDecodeError:
+            import re
+            m = re.search(r'\{.*\}', resp, re.DOTALL)
+            sentiment = json.loads(m.group()) if m else {}
+    except Exception as e:
+        sentiment = {"error": str(e)[:120], "sentiment": "neutral", "score": 0}
+
+    doc = {
+        "feedback_id": str(uuid.uuid4()),
+        "tenant_id": user.get("tenant_id"),
+        "employee_id": None if req.anonymous else user.get("employee_id"),
+        "employee_name": None if req.anonymous else user.get("name"),
+        "anonymous": req.anonymous,
+        "category": req.category,
+        "text": req.text,
+        "rating": req.rating,
+        "sentiment": sentiment.get("sentiment", "neutral"),
+        "score": float(sentiment.get("score", 0)),
+        "confidence": float(sentiment.get("confidence", 0)),
+        "emotions": sentiment.get("emotions", []),
+        "key_themes": sentiment.get("key_themes", []),
+        "summary": sentiment.get("summary", ""),
+        "action_needed": bool(sentiment.get("action_needed", False)),
+        "recommended_action": sentiment.get("recommended_action", ""),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.feedbacks.insert_one(doc)
+    public_doc = {k: v for k, v in doc.items() if k != "_id"}
+    return {"message": "Thanks for sharing — your feedback helps us improve.", "feedback": public_doc}
+
+
+@router.get("/sentiment-dashboard")
+async def sentiment_dashboard(request: Request, days: int = 30):
+    """HR-only: Aggregated sentiment analytics across feedbacks."""
+    user = await get_current_user(request)
+    if user["role"] not in ["super_admin", "hr_manager"]:
+        raise HTTPException(status_code=403, detail="HR / Admin only")
+
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    query: dict = {"created_at": {"$gte": cutoff}}
+    if user["role"] == "hr_manager":
+        query["tenant_id"] = user.get("tenant_id")
+
+    feedbacks = await db.feedbacks.find(query, {"_id": 0}).sort("created_at", -1).to_list(2000)
+
+    total = len(feedbacks)
+    sentiment_counts = {"positive": 0, "negative": 0, "neutral": 0, "mixed": 0}
+    category_counts: dict = {}
+    theme_counts: dict = {}
+    emotion_counts: dict = {}
+    score_sum = 0.0
+    action_needed_items: list = []
+    daily: dict = {}
+
+    for f in feedbacks:
+        s = f.get("sentiment", "neutral")
+        sentiment_counts[s] = sentiment_counts.get(s, 0) + 1
+        category_counts[f.get("category", "general")] = category_counts.get(f.get("category", "general"), 0) + 1
+        for t in (f.get("key_themes") or [])[:5]:
+            theme_counts[t] = theme_counts.get(t, 0) + 1
+        for e in (f.get("emotions") or [])[:5]:
+            emotion_counts[e] = emotion_counts.get(e, 0) + 1
+        score_sum += float(f.get("score", 0))
+        if f.get("action_needed"):
+            action_needed_items.append({
+                "feedback_id": f["feedback_id"],
+                "text": f["text"][:200],
+                "sentiment": s,
+                "summary": f.get("summary", ""),
+                "recommended_action": f.get("recommended_action", ""),
+                "category": f.get("category"),
+                "created_at": f.get("created_at"),
+            })
+        # daily bucket (YYYY-MM-DD)
+        day = (f.get("created_at") or "")[:10]
+        if day:
+            d = daily.setdefault(day, {"date": day, "positive": 0, "negative": 0, "neutral": 0, "mixed": 0, "avg_score": 0, "n": 0})
+            d[s] = d.get(s, 0) + 1
+            d["n"] += 1
+            d["avg_score"] = round((d["avg_score"] * (d["n"] - 1) + float(f.get("score", 0))) / d["n"], 3)
+
+    trend = sorted(daily.values(), key=lambda x: x["date"])
+    top = lambda d, n=8: sorted([{"label": k, "count": v} for k, v in d.items()], key=lambda x: -x["count"])[:n]
+
+    return {
+        "period_days": days,
+        "total_feedbacks": total,
+        "average_score": round(score_sum / total, 3) if total else 0,
+        "sentiment_distribution": sentiment_counts,
+        "category_distribution": category_counts,
+        "top_themes": top(theme_counts),
+        "top_emotions": top(emotion_counts),
+        "action_needed_count": len(action_needed_items),
+        "action_needed_items": action_needed_items[:20],
+        "trend": trend,
+        "recent_feedbacks": feedbacks[:10],
+    }
+
+
+@router.get("/feedbacks")
+async def list_feedbacks(request: Request, limit: int = 50, sentiment: Optional[str] = None, category: Optional[str] = None):
+    """HR-only: list raw feedbacks (anonymous ones don't expose employee identity)."""
+    user = await get_current_user(request)
+    if user["role"] not in ["super_admin", "hr_manager"]:
+        raise HTTPException(status_code=403, detail="HR / Admin only")
+    query: dict = {}
+    if user["role"] == "hr_manager":
+        query["tenant_id"] = user.get("tenant_id")
+    if sentiment:
+        query["sentiment"] = sentiment
+    if category:
+        query["category"] = category
+    docs = await db.feedbacks.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return docs
+
+
 # ─── RESUME PARSER (BLIND HIRING) ─────────────────────────────────────────────
 
 @router.post("/parse-resume")

@@ -12,6 +12,9 @@ import TenantManagement from './pages/SuperAdmin/TenantManagement';
 import SecuritySettings from './pages/SuperAdmin/SecuritySettings';
 import AIAssistantPage from './pages/AIAssistantPage';
 import BlockchainCredentialsPage from './pages/BlockchainCredentialsPage';
+import WhatsAppAdminPage from './pages/WhatsAppAdminPage';
+import SentimentDashboardPage from './pages/SentimentDashboardPage';
+import DemoSeederPage from './pages/SuperAdmin/DemoSeederPage';
 import HRDashboard from './pages/HR/Dashboard';
 import EmployeeManagement from './pages/HR/EmployeeManagement';
 import AttendanceMgmt from './pages/HR/AttendanceMgmt';
@@ -88,6 +91,9 @@ function AppRoutes() {
       <Route path="/security-settings" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
       <Route path="/ai-assistant" element={<ProtectedRoute><AIAssistantPage /></ProtectedRoute>} />
       <Route path="/blockchain-credentials" element={<ProtectedRoute><BlockchainCredentialsPage /></ProtectedRoute>} />
+      <Route path="/whatsapp-admin" element={<ProtectedRoute><WhatsAppAdminPage /></ProtectedRoute>} />
+      <Route path="/sentiment-dashboard" element={<ProtectedRoute><SentimentDashboardPage /></ProtectedRoute>} />
+      <Route path="/demo-seeder" element={<ProtectedRoute><DemoSeederPage /></ProtectedRoute>} />
 
       {/* HR Manager */}
       <Route path="/employees" element={<ProtectedRoute><EmployeeManagement /></ProtectedRoute>} />
