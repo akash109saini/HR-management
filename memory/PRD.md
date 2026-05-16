@@ -52,6 +52,11 @@
 - Stats: total, avg score, action-needed, sentiment breakdown bar, top themes, top emotions, action-required items with AI-suggested actions, recent feed
 - Anonymous toggle for safe employee feedback
 
+### Team Time-Off Calendar (NEW)
+- Backend: `GET /api/leaves/calendar?start=&end=` — returns events, by-day index, summary stats
+- Frontend `/team-calendar`: 7×6 day grid (Sun-Sat), color-coded leave pills, holiday cells with stars, side panel for selected-day details, "Upcoming This Month" feed, prev/next/today navigation
+- Visible to both HR Managers and Employees (tenant-scoped)
+- Demo seeder now also inserts 7 approved leaves + 3 holidays
 ### Predictive Attrition (HR)
 - Frontend `/attrition-dashboard` — list of all tenant employees with one-click Analyze (per-employee LLM scoring)
 - Color-coded risk levels (low/medium/high/critical), score, key factors, recommended actions
