@@ -15,6 +15,8 @@ import BlockchainCredentialsPage from './pages/BlockchainCredentialsPage';
 import WhatsAppAdminPage from './pages/WhatsAppAdminPage';
 import SentimentDashboardPage from './pages/SentimentDashboardPage';
 import DemoSeederPage from './pages/SuperAdmin/DemoSeederPage';
+import BiometricDevicesPage from './pages/BiometricDevicesPage';
+import AttritionDashboardPage from './pages/AttritionDashboardPage';
 import HRDashboard from './pages/HR/Dashboard';
 import EmployeeManagement from './pages/HR/EmployeeManagement';
 import AttendanceMgmt from './pages/HR/AttendanceMgmt';
@@ -94,6 +96,8 @@ function AppRoutes() {
       <Route path="/whatsapp-admin" element={<ProtectedRoute><WhatsAppAdminPage /></ProtectedRoute>} />
       <Route path="/sentiment-dashboard" element={<ProtectedRoute><SentimentDashboardPage /></ProtectedRoute>} />
       <Route path="/demo-seeder" element={<ProtectedRoute><DemoSeederPage /></ProtectedRoute>} />
+      <Route path="/biometric-devices" element={<ProtectedRoute><BiometricDevicesPage /></ProtectedRoute>} />
+      <Route path="/attrition-dashboard" element={<ProtectedRoute><AttritionDashboardPage /></ProtectedRoute>} />
 
       {/* HR Manager */}
       <Route path="/employees" element={<ProtectedRoute><EmployeeManagement /></ProtectedRoute>} />

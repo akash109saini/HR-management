@@ -7,7 +7,7 @@ import {
   Briefcase, Star, Megaphone, LogOut, Sun, Moon, ChevronLeft, ChevronRight, Menu, X,
   Building, UserCircle, FileDown, Timer, Award, Layers, Calendar, UserX, UserMinus,
   Shield, ClipboardCheck, CreditCard, Settings2, PiggyBank, KeyRound, Sparkles, BadgeCheck,
-  MessageSquare, Heart, Database
+  MessageSquare, Heart, Database, Fingerprint, TrendingDown
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
@@ -44,6 +44,8 @@ const navConfig = {
     { label: 'AI Assistant', path: '/ai-assistant', icon: Sparkles },
     { label: 'WhatsApp Center', path: '/whatsapp-admin', icon: MessageSquare },
     { label: 'Sentiment', path: '/sentiment-dashboard', icon: Heart },
+    { label: 'Attrition Risk', path: '/attrition-dashboard', icon: TrendingDown },
+    { label: 'Biometric', path: '/biometric-devices', icon: Fingerprint },
     { label: 'Blockchain Credentials', path: '/blockchain-credentials', icon: BadgeCheck },
     { label: 'Billing', path: '/billing', icon: CreditCard },
     { label: 'Profile', path: '/profile', icon: UserCircle },
