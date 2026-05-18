@@ -15,6 +15,7 @@ from services.pf_calculator import (
     merged_pf_settings,
     compute_pf,
     compute_esi,
+    compute_nps,
 )
 
 router = APIRouter(prefix="/api/pf", tags=["pf"])
@@ -51,6 +52,8 @@ class PFSettingsUpsert(BaseModel):
     eps_wage_ceiling: Optional[float] = None
     edli_rate: Optional[float] = None
     admin_charges_rate: Optional[float] = None
+    nps_enabled: Optional[bool] = None
+    employer_nps_rate: Optional[float] = None
     esi_enabled: Optional[bool] = None
     esi_employee_rate: Optional[float] = None
     esi_employer_rate: Optional[float] = None
@@ -63,7 +66,9 @@ class StatutoryInfoUpsert(BaseModel):
     uan: Optional[str] = None
     pf_account_no: Optional[str] = None
     pf_join_date: Optional[str] = None
+    pf_exit_date: Optional[str] = None
     pf_opt_in: Optional[bool] = None
+    nps_opt_in: Optional[bool] = None
     esi_number: Optional[str] = None
     esi_opt_in: Optional[bool] = None
 
@@ -129,7 +134,9 @@ async def get_statutory(employee_id: str, request: Request):
         "uan": emp.get("uan"),
         "pf_account_no": emp.get("pf_account_no"),
         "pf_join_date": emp.get("pf_join_date"),
+        "pf_exit_date": emp.get("pf_exit_date"),
         "pf_opt_in": emp.get("pf_opt_in", True),
+        "nps_opt_in": emp.get("nps_opt_in", False),
         "esi_number": emp.get("esi_number"),
         "esi_opt_in": emp.get("esi_opt_in", True),
     }
@@ -191,12 +198,18 @@ async def compute_for_employee(employee_id: str, request: Request):
         pf_settings=settings,
         esi_opt_in=bool(emp.get("esi_opt_in", True)),
     )
+    nps_r = compute_nps(
+        basic_monthly=basic,
+        pf_settings=settings,
+        nps_opt_in=bool(emp.get("nps_opt_in", False)),
+    )
     return {
         "employee_id": employee_id,
         "monthly_gross": monthly,
         "monthly_basic": basic,
         "pf": pf_r,
         "esi": esi_r,
+        "nps": nps_r,
     }
 
 
@@ -326,3 +339,105 @@ async def my_pf_statement(request: Request):
             "grand_total": round(total_employee + total_employer_epf + total_employer_eps, 2),
         },
     }
+
+
+
+# ---------------------------------------------------------------------------
+# EPFO Form 5 (new joiners) & Form 10 (leavers) — monthly statutory returns
+# ---------------------------------------------------------------------------
+def _parse_month_param(month_str: Optional[str]) -> tuple:
+    if not month_str:
+        raise HTTPException(status_code=400, detail="month query param required, e.g. 2026-05")
+    try:
+        y, m = month_str.split("-")
+        return int(y), int(m)
+    except Exception:
+        raise HTTPException(status_code=400, detail="month must be YYYY-MM")
+
+
+async def _employees_with_date_in_month(
+    tenant_id: Optional[str], field: str, year: int, month: int
+) -> List[Dict[str, Any]]:
+    prefix = f"{year:04d}-{month:02d}"
+    q: Dict[str, Any] = {field: {"$regex": f"^{prefix}"}}
+    if tenant_id:
+        q["tenant_id"] = tenant_id
+    return await db.users.find(q, {"_id": 0, "password_hash": 0}).to_list(5000)
+
+
+@router.get("/reports/form5")
+async def epfo_form5(request: Request):
+    """EPFO Form 5 — list of employees who JOINED PF during the requested month."""
+    user = await _require_admin(request)
+    year, month = _parse_month_param(request.query_params.get("month"))
+    emps = await _employees_with_date_in_month(
+        user.get("tenant_id"), "pf_join_date", year, month
+    )
+
+    buffer = io.StringIO()
+    w = csv.writer(buffer)
+    w.writerow([
+        "Sr. No.", "UAN", "PF Account No", "Employee Name", "Father / Husband Name",
+        "Date of Birth", "Date of Joining PF", "Gender",
+        "PAN", "Aadhaar (last 4)", "Designation", "Department",
+    ])
+    for i, e in enumerate(emps, 1):
+        w.writerow([
+            i,
+            e.get("uan", "") or "",
+            e.get("pf_account_no", "") or "",
+            e.get("name", "") or "",
+            e.get("father_name", "") or "",
+            e.get("date_of_birth", "") or "",
+            e.get("pf_join_date", "") or "",
+            e.get("gender", "") or "",
+            e.get("pan", "") or "",
+            e.get("aadhaar_last4", "") or "",
+            e.get("position", "") or "",
+            e.get("department", "") or "",
+        ])
+
+    buffer.seek(0)
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="epfo_form5_{year}_{month:02d}.csv"'},
+    )
+
+
+@router.get("/reports/form10")
+async def epfo_form10(request: Request):
+    """EPFO Form 10 — list of employees who LEFT PF coverage during the month."""
+    user = await _require_admin(request)
+    year, month = _parse_month_param(request.query_params.get("month"))
+    emps = await _employees_with_date_in_month(
+        user.get("tenant_id"), "pf_exit_date", year, month
+    )
+
+    buffer = io.StringIO()
+    w = csv.writer(buffer)
+    w.writerow([
+        "Sr. No.", "UAN", "PF Account No", "Employee Name",
+        "Date of Joining PF", "Date of Leaving PF", "Reason for Leaving",
+        "PAN", "Designation", "Department",
+    ])
+    for i, e in enumerate(emps, 1):
+        w.writerow([
+            i,
+            e.get("uan", "") or "",
+            e.get("pf_account_no", "") or "",
+            e.get("name", "") or "",
+            e.get("pf_join_date", "") or "",
+            e.get("pf_exit_date", "") or "",
+            e.get("exit_reason", "Resignation") if e.get("status") != "active" else "",
+            e.get("pan", "") or "",
+            e.get("position", "") or "",
+            e.get("department", "") or "",
+        ])
+
+    buffer.seek(0)
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="epfo_form10_{year}_{month:02d}.csv"'},
+    )

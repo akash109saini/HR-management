@@ -22,6 +22,9 @@ DEFAULT_PF_SETTINGS: Dict = {
     "eps_wage_ceiling": 15000,          # EPS is *always* capped
     "edli_rate": 0.5,                   # EDLI employer-only, of capped wage
     "admin_charges_rate": 0.5,          # PF admin charges employer-only
+    # NPS (Section 80CCD(2)) — employer contribution to NPS, deductible from tax
+    "nps_enabled": False,
+    "employer_nps_rate": 10.0,          # % of basic, max 10% allowed u/s 80CCD(2)
     # ESI
     "esi_enabled": True,
     "esi_employee_rate": 0.75,
@@ -121,4 +124,27 @@ def compute_esi(
         "employee_esi": employee_esi,
         "employer_esi": employer_esi,
         "total_esi": _r(employee_esi + employer_esi),
+    }
+
+
+def compute_nps(
+    *,
+    basic_monthly: float,
+    pf_settings: Optional[Dict] = None,
+    nps_opt_in: bool = False,
+) -> Dict:
+    """Compute monthly employer NPS contribution u/s 80CCD(2).
+
+    Capped at 10% of basic (statutory cap for tax-deductibility).
+    """
+    s = merged_pf_settings(pf_settings)
+    basic = max(0.0, float(basic_monthly or 0))
+    applicable = bool(nps_opt_in and s.get("nps_enabled") and basic > 0)
+    if not applicable:
+        return {"applicable": False, "employer_nps": 0.0, "rate": 0.0}
+    rate = min(float(s.get("employer_nps_rate", 10.0)), 10.0)
+    return {
+        "applicable": True,
+        "rate": rate,
+        "employer_nps": _r(basic * rate / 100.0),
     }
