@@ -25,6 +25,8 @@ from routes.whatsapp_routes import router as whatsapp_router
 from routes.blockchain_routes import router as blockchain_router
 from routes.demo_routes import router as demo_router
 from routes.biometric_routes import iclock_router, admin_router as biometric_admin_router
+from routes.tax_routes import router as tax_router
+from routes.pf_routes import router as pf_router
 from seed import seed_database
 
 # Configure logging
@@ -65,6 +67,8 @@ app.include_router(blockchain_router)
 app.include_router(demo_router)
 app.include_router(iclock_router)
 app.include_router(biometric_admin_router)
+app.include_router(tax_router)
+app.include_router(pf_router)
 
 
 @app.get("/api")
@@ -85,7 +89,12 @@ async def startup():
     await db.punch_corrections.create_index("user_id")
     await db.punch_corrections.create_index("tenant_id")
     await db.payslips.create_index([("employee_id", 1), ("month", 1), ("year", 1)])
+    await db.payslips.create_index([("tenant_id", 1), ("month", 1), ("year", 1)])
     await db.login_attempts.create_index("identifier")
+    await db.tax_settings.create_index([("tenant_id", 1), ("financial_year", 1)], unique=True)
+    await db.tax_declarations.create_index([("employee_id", 1), ("financial_year", 1)], unique=True)
+    await db.tax_declarations.create_index([("tenant_id", 1), ("financial_year", 1), ("status", 1)])
+    await db.pf_settings.create_index("tenant_id", unique=True)
     logger.info("Database indexes created")
 
     # Seed database

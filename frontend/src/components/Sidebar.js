@@ -7,7 +7,7 @@ import {
   Briefcase, Star, Megaphone, LogOut, Sun, Moon, ChevronLeft, ChevronRight, Menu, X,
   Building, UserCircle, FileDown, Timer, Award, Layers, Calendar, UserX, UserMinus,
   Shield, ClipboardCheck, CreditCard, Settings2, PiggyBank, KeyRound, Sparkles, BadgeCheck,
-  MessageSquare, Heart, Database, Fingerprint, TrendingDown
+  MessageSquare, Heart, Database, Fingerprint, TrendingDown, Receipt, Landmark
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
@@ -34,6 +34,8 @@ const navConfig = {
     { label: 'Holidays', path: '/holidays', icon: Calendar },
     { label: 'Team Calendar', path: '/team-calendar', icon: CalendarDays },
     { label: 'Payroll', path: '/payroll', icon: DollarSign },
+    { label: 'Tax Management', path: '/tax-management', icon: Receipt },
+    { label: 'PF & ESI', path: '/pf-management', icon: Landmark },
     { label: 'Advance Salary', path: '/advance-salary', icon: PiggyBank },
     { label: 'Recruitment', path: '/recruitment', icon: Briefcase },
     { label: 'Performance', path: '/performance', icon: Star },
@@ -57,6 +59,8 @@ const navConfig = {
     { label: 'Leaves', path: '/my-leaves', icon: CalendarDays },
     { label: 'Team Calendar', path: '/team-calendar', icon: CalendarDays },
     { label: 'Payslips', path: '/my-payslips', icon: DollarSign },
+    { label: 'My Tax', path: '/my-tax', icon: Receipt },
+    { label: 'My PF', path: '/my-pf', icon: Landmark },
     { label: 'AI Assistant', path: '/ai-assistant', icon: Sparkles },
     { label: 'Pulse / Feedback', path: '/sentiment-dashboard', icon: Heart },
     { label: 'My Credentials', path: '/blockchain-credentials', icon: BadgeCheck },

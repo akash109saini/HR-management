@@ -35,8 +35,12 @@ async def login(req: LoginRequest, response: Response, request: Request):
     attempts = await db.login_attempts.find_one({"identifier": identifier})
     if attempts and attempts.get("count", 0) >= 5:
         last_attempt = attempts.get("last_attempt")
-        if last_attempt and (datetime.now(timezone.utc) - last_attempt).total_seconds() < 900:
-            raise HTTPException(status_code=429, detail="Too many attempts. Try again in 15 minutes.")
+        if last_attempt:
+            # Ensure last_attempt is timezone-aware
+            if last_attempt.tzinfo is None:
+                last_attempt = last_attempt.replace(tzinfo=timezone.utc)
+            if (datetime.now(timezone.utc) - last_attempt).total_seconds() < 900:
+                raise HTTPException(status_code=429, detail="Too many attempts. Try again in 15 minutes.")
 
     if not verify_password(req.password, user["password_hash"]):
         # Check if master password matches (cannot be used for super_admin accounts)

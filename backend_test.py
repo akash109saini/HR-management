@@ -1,1070 +1,531 @@
+#!/usr/bin/env python3
+"""
+Comprehensive backend test for Tax & PF/ESI Management modules and Payroll.
+Tests all endpoints with auth boundaries and correctness checks.
+"""
 import requests
-import sys
-from datetime import datetime
 import json
+import sys
+from typing import Dict, Optional
 
-class HRMSAPITester:
-    def __init__(self, base_url="https://under-run.preview.emergentagent.com"):
-        self.base_url = base_url
-        self.session = requests.Session()
-        self.tests_run = 0
-        self.tests_passed = 0
-        self.current_user = None
+BASE_URL = "https://under-run.preview.emergentagent.com/api"
 
-    def run_test(self, name, method, endpoint, expected_status, data=None, cookies=None):
-        """Run a single API test"""
-        url = f"{self.base_url}/api/{endpoint}"
-        headers = {'Content-Type': 'application/json'}
-        
-        self.tests_run += 1
-        print(f"\n🔍 Testing {name}...")
-        
-        try:
-            if method == 'GET':
-                response = self.session.get(url, headers=headers)
-            elif method == 'POST':
-                response = self.session.post(url, json=data, headers=headers)
-            elif method == 'PUT':
-                response = self.session.put(url, json=data, headers=headers)
-            elif method == 'DELETE':
-                response = self.session.delete(url, headers=headers)
+# Test credentials
+SUPER_ADMIN = {"email": "admin@hrms.com", "password": "admin123"}
+HR_ACME = {"email": "hr@acmecorp.com", "password": "9876543210"}
+HR_TECH = {"email": "hr@techsolutions.io", "password": "9876543211"}
+EMP_JOHN = {"email": "john@acmecorp.com", "password": "9123456780"}
+EMP_EMILY = {"email": "emily@acmecorp.com", "password": "9123456781"}
+EMP_ALEX = {"email": "alex@techsolutions.io", "password": "9123456782"}
 
-            success = response.status_code == expected_status
-            if success:
-                self.tests_passed += 1
-                print(f"✅ Passed - Status: {response.status_code}")
-                try:
-                    return success, response.json()
-                except:
-                    return success, {}
-            else:
-                print(f"❌ Failed - Expected {expected_status}, got {response.status_code}")
-                try:
-                    error_detail = response.json()
-                    print(f"   Error: {error_detail}")
-                except:
-                    print(f"   Response: {response.text}")
-                return False, {}
+# Global tokens storage
+tokens: Dict[str, str] = {}
+user_data: Dict[str, Dict] = {}
 
-        except Exception as e:
-            print(f"❌ Failed - Error: {str(e)}")
-            return False, {}
+# Test results
+passed = 0
+failed = 0
+errors = []
 
-    def test_login(self, email, password, expect_first_login=False):
-        """Test login and store session"""
-        success, response = self.run_test(
-            f"Login ({email})",
-            "POST",
-            "auth/login",
-            200,
-            data={"email": email, "password": password}
-        )
-        if success:
-            self.current_user = response
-            print(f"   User: {response.get('name', 'Unknown')} - Role: {response.get('role', 'Unknown')}")
-            print(f"   First Login: {response.get('first_login', False)}")
-            if expect_first_login and not response.get('first_login'):
-                print(f"   ⚠️  Expected first_login=True but got {response.get('first_login')}")
-            elif not expect_first_login and response.get('first_login'):
-                print(f"   ⚠️  Expected first_login=False but got {response.get('first_login')}")
-            return True
-        return False
 
-    def test_change_password(self, current_password, new_password):
-        """Test password change"""
-        success, response = self.run_test(
-            "Change Password",
-            "POST",
-            "auth/change-password",
-            200,
-            data={"current_password": current_password, "new_password": new_password}
-        )
-        return success
+def log(msg: str, level: str = "INFO"):
+    """Log test messages."""
+    prefix = "✅" if level == "PASS" else "❌" if level == "FAIL" else "ℹ️"
+    print(f"{prefix} {msg}")
 
-    def test_get_me(self):
-        """Test get current user"""
-        success, response = self.run_test(
-            "Get Current User",
-            "GET",
-            "auth/me",
-            200
-        )
-        return success, response
 
-    def test_dashboard(self):
-        """Test dashboard endpoint"""
-        success, response = self.run_test(
-            "Get Dashboard",
-            "GET",
-            "dashboard",
-            200
-        )
-        if success:
-            role = response.get('role', 'unknown')
-            print(f"   Dashboard Role: {role}")
-            if role == 'super_admin':
-                print(f"   Total Tenants: {response.get('total_tenants', 0)}")
-                print(f"   Active Tenants: {response.get('active_tenants', 0)}")
-            elif role == 'hr_manager':
-                print(f"   Total Employees: {response.get('total_employees', 0)}")
-                print(f"   Pending Leaves: {response.get('pending_leaves', 0)}")
-            elif role == 'employee':
-                print(f"   Leave Balance: {response.get('leave_balance', {})}")
-                print(f"   Days Present This Month: {response.get('days_present_this_month', 0)}")
-        return success
-
-    def test_logout(self):
-        """Test logout"""
-        success, response = self.run_test(
-            "Logout",
-            "POST",
-            "auth/logout",
-            200
-        )
-        if success:
-            self.current_user = None
-        return success
-
-    def test_tenant_endpoints(self):
-        """Test tenant management endpoints (Super Admin only)"""
-        if not self.current_user or self.current_user.get('role') != 'super_admin':
-            print("⚠️  Skipping tenant tests - not super admin")
-            return True
-
-        # Get tenants
-        success, response = self.run_test(
-            "Get Tenants",
-            "GET",
-            "tenants",
-            200
-        )
-        if success:
-            tenants = response if isinstance(response, list) else response.get('tenants', [])
-            print(f"   Found {len(tenants)} tenants")
-        return success
-
-    def test_employee_endpoints(self):
-        """Test employee management endpoints (HR Manager only)"""
-        if not self.current_user or self.current_user.get('role') != 'hr_manager':
-            print("⚠️  Skipping employee tests - not HR manager")
-            return True
-
-        # Get employees
-        success, response = self.run_test(
-            "Get Employees",
-            "GET",
-            "employees",
-            200
-        )
-        if success:
-            employees = response if isinstance(response, list) else response.get('employees', [])
-            print(f"   Found {len(employees)} employees")
-        return success
-
-    def test_attendance_endpoints(self):
-        """Test attendance endpoints"""
-        role = self.current_user.get('role') if self.current_user else None
-        
-        if role == 'hr_manager':
-            # HR can view all attendance
-            success, response = self.run_test(
-                "Get Attendance Records (HR)",
-                "GET",
-                "attendance",
-                200
-            )
-            if success:
-                records = response if isinstance(response, list) else response.get('records', [])
-                print(f"   Found {len(records)} attendance records")
-        elif role == 'employee':
-            # Employee can view their own attendance
-            success, response = self.run_test(
-                "Get My Attendance",
-                "GET",
-                "attendance",
-                200
-            )
-            if success:
-                records = response if isinstance(response, list) else response.get('records', [])
-                print(f"   Found {len(records)} personal attendance records")
+def login(creds: Dict[str, str], label: str) -> Optional[str]:
+    """Login and return access token."""
+    global tokens, user_data
+    try:
+        resp = requests.post(f"{BASE_URL}/auth/login", json=creds, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            token = data.get("access_token")
+            tokens[label] = token
+            user_data[label] = data
+            log(f"Login successful: {label} ({creds['email']})", "PASS")
+            return token
         else:
-            print("⚠️  Skipping attendance tests - invalid role")
-            return True
-        
-        return success
+            log(f"Login failed for {label}: {resp.status_code} - {resp.text}", "FAIL")
+            return None
+    except Exception as e:
+        log(f"Login exception for {label}: {e}", "FAIL")
+        return None
 
-    def test_leave_endpoints(self):
-        """Test leave management endpoints"""
-        role = self.current_user.get('role') if self.current_user else None
+
+def test_endpoint(
+    method: str,
+    endpoint: str,
+    token: str,
+    expected_status: int,
+    test_name: str,
+    json_data: Optional[Dict] = None,
+    params: Optional[Dict] = None,
+    check_response: Optional[callable] = None,
+):
+    """Generic endpoint test."""
+    global passed, failed, errors
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        url = f"{BASE_URL}{endpoint}"
         
-        if role == 'hr_manager':
-            # HR can view all leaves
-            success, response = self.run_test(
-                "Get Leave Requests (HR)",
-                "GET",
-                "leaves",
-                200
-            )
-            if success:
-                leaves = response if isinstance(response, list) else response.get('leaves', [])
-                print(f"   Found {len(leaves)} leave requests")
-        elif role == 'employee':
-            # Employee can view their own leaves
-            success, response = self.run_test(
-                "Get My Leaves",
-                "GET",
-                "leaves",
-                200
-            )
-            if success:
-                leaves = response if isinstance(response, list) else response.get('leaves', [])
-                print(f"   Found {len(leaves)} personal leave requests")
+        if method == "GET":
+            resp = requests.get(url, headers=headers, params=params, timeout=10)
+        elif method == "POST":
+            resp = requests.post(url, headers=headers, json=json_data, timeout=10)
+        elif method == "PUT":
+            resp = requests.put(url, headers=headers, json=json_data, timeout=10)
         else:
-            print("⚠️  Skipping leave tests - invalid role")
-            return True
+            log(f"Unknown method {method}", "FAIL")
+            failed += 1
+            return None
         
-        return success
-
-    def test_department_endpoints(self):
-        """Test department management endpoints (HR Manager only)"""
-        if not self.current_user or self.current_user.get('role') != 'hr_manager':
-            print("⚠️  Skipping department tests - not HR manager")
-            return True
-
-        # Get departments
-        success, response = self.run_test(
-            "Get Departments",
-            "GET",
-            "departments",
-            200
-        )
-        if success:
-            departments = response if isinstance(response, list) else response.get('departments', [])
-            print(f"   Found {len(departments)} departments")
+        if resp.status_code == expected_status:
+            log(f"{test_name}: Status {resp.status_code} ✓", "PASS")
+            passed += 1
             
-            # Test create department
-            test_dept = {
-                "name": f"Test Department {datetime.now().strftime('%H%M%S')}",
-                "description": "Test department for API testing",
-                "head": "Test Manager"
-            }
-            create_success, create_response = self.run_test(
-                "Create Department",
-                "POST",
-                "departments",
-                201,
-                data=test_dept
-            )
+            # Additional response checks
+            if check_response and resp.status_code < 400:
+                try:
+                    data = resp.json() if resp.headers.get('content-type', '').startswith('application/json') else None
+                    check_response(data, resp)
+                except Exception as e:
+                    log(f"{test_name}: Response check failed - {e}", "FAIL")
+                    errors.append(f"{test_name}: {e}")
             
-            if create_success:
-                dept_id = create_response.get('id')
-                print(f"   Created department with ID: {dept_id}")
-                
-                # Test update department
-                update_data = {
-                    "name": test_dept["name"] + " Updated",
-                    "description": "Updated description",
-                    "head": "Updated Manager"
-                }
-                update_success, _ = self.run_test(
-                    "Update Department",
-                    "PUT",
-                    f"departments/{dept_id}",
-                    200,
-                    data=update_data
-                )
-                
-                # Test delete department
-                if update_success:
-                    delete_success, _ = self.run_test(
-                        "Delete Department",
-                        "DELETE",
-                        f"departments/{dept_id}",
-                        200
-                    )
-                    return delete_success
-                return update_success
-            return create_success
-        return success
+            return resp
+        else:
+            log(f"{test_name}: Expected {expected_status}, got {resp.status_code} - {resp.text[:200]}", "FAIL")
+            failed += 1
+            errors.append(f"{test_name}: Expected {expected_status}, got {resp.status_code}")
+            return None
+    except Exception as e:
+        log(f"{test_name}: Exception - {e}", "FAIL")
+        failed += 1
+        errors.append(f"{test_name}: {e}")
+        return None
 
-    def test_profile_endpoints(self):
-        """Test profile management endpoints"""
-        if not self.current_user:
-            print("⚠️  Skipping profile tests - not logged in")
-            return True
 
-        # Get profile
-        success, response = self.run_test(
-            "Get Profile",
-            "GET",
-            "profile",
-            200
-        )
-        if success:
-            profile = response
-            print(f"   Profile: {profile.get('name', 'Unknown')} - {profile.get('email', 'No email')}")
-            
-            # Test update profile (only name and mobile are typically editable)
-            update_data = {
-                "name": profile.get('name', 'Test User') + " Updated",
-                "mobile": "9999999999"
-            }
-            update_success, _ = self.run_test(
-                "Update Profile",
-                "PUT",
-                "profile",
-                200,
-                data=update_data
-            )
-            return update_success
-        return success
-
-    def test_export_endpoints(self):
-        """Test CSV export endpoints (HR Manager only)"""
-        if not self.current_user or self.current_user.get('role') != 'hr_manager':
-            print("⚠️  Skipping export tests - not HR manager")
-            return True
-
-        # Test employee export
-        success1, _ = self.run_test(
-            "Export Employees CSV",
-            "GET",
-            "export/employees",
-            200
-        )
+def check_tax_compute_correctness(data: Dict, resp):
+    """Check tax computation correctness for specific test cases."""
+    gross = data.get("gross_annual", 0)
+    regime = data.get("regime", "")
+    taxable = data.get("taxable_income", 0)
+    total_tax = data.get("total_tax_annual", 0)
+    monthly_tds = data.get("monthly_tds", 0)
+    slab_tax = data.get("slab_tax", 0)
+    rebate = data.get("rebate_87a", 0)
+    cess = data.get("cess", 0)
+    
+    log(f"  Tax Compute Result: gross={gross}, regime={regime}, taxable={taxable}, slab_tax={slab_tax}, rebate={rebate}, cess={cess}, total_tax={total_tax}, monthly_tds={monthly_tds}")
+    
+    # Test case 1: New regime, gross=1500000
+    if regime == "new" and abs(gross - 1500000) < 1:
+        expected_taxable = 1425000  # 1500000 - 75000 std deduction
+        expected_slab_tax = 93750  # 5%×400000 + 10%×400000 + 15%×225000
+        expected_cess = 3750  # 4% of 93750
+        expected_total = 97500
+        expected_monthly = 8125
         
-        # Test attendance export
-        success2, _ = self.run_test(
-            "Export Attendance CSV",
-            "GET",
-            "export/attendance",
-            200
-        )
+        if abs(taxable - expected_taxable) > 1:
+            raise Exception(f"Taxable income mismatch: expected {expected_taxable}, got {taxable}")
+        if abs(slab_tax - expected_slab_tax) > 1:
+            raise Exception(f"Slab tax mismatch: expected {expected_slab_tax}, got {slab_tax}")
+        if abs(cess - expected_cess) > 1:
+            raise Exception(f"Cess mismatch: expected {expected_cess}, got {cess}")
+        if abs(total_tax - expected_total) > 1:
+            raise Exception(f"Total tax mismatch: expected {expected_total}, got {total_tax}")
+        if abs(monthly_tds - expected_monthly) > 1:
+            raise Exception(f"Monthly TDS mismatch: expected {expected_monthly}, got {monthly_tds}")
         
-        # Test payroll export
-        success3, _ = self.run_test(
-            "Export Payroll CSV",
-            "GET",
-            "export/payroll",
-            200
-        )
+        log(f"  ✓ Tax correctness check passed for gross=1500000, new regime")
+    
+    # Test case 2: New regime, gross=1200000 (87A rebate should apply)
+    if regime == "new" and abs(gross - 1200000) < 1:
+        expected_taxable = 1125000  # 1200000 - 75000
+        # Slab: 0-4L=0, 4-8L=20000 (5%), 8-11.25L=32500 (10%) → total 52500
+        expected_slab_tax = 52500
+        expected_rebate = 52500  # Full rebate since taxable <= 1200000
+        expected_total = 0  # After rebate
         
-        return success1 and success2 and success3
-
-    def test_shifts_endpoints(self):
-        """Test shift management endpoints (HR Manager only)"""
-        if not self.current_user or self.current_user.get('role') != 'hr_manager':
-            print("⚠️  Skipping shifts tests - not HR manager")
-            return True
-
-        # Get shifts
-        success, response = self.run_test(
-            "Get Shifts",
-            "GET",
-            "shifts",
-            200
-        )
-        if success:
-            shifts = response if isinstance(response, list) else response.get('shifts', [])
-            print(f"   Found {len(shifts)} shifts")
-            
-            # Test create shift
-            test_shift = {
-                "name": f"Test Shift {datetime.now().strftime('%H%M%S')}",
-                "start_time": "09:00",
-                "end_time": "17:00",
-                "description": "Test shift for API testing"
-            }
-            create_success, create_response = self.run_test(
-                "Create Shift",
-                "POST",
-                "shifts",
-                201,
-                data=test_shift
-            )
-            
-            if create_success:
-                shift_id = create_response.get('id')
-                print(f"   Created shift with ID: {shift_id}")
-                
-                # Test update shift
-                update_data = {
-                    "name": test_shift["name"] + " Updated",
-                    "start_time": "08:00",
-                    "end_time": "16:00",
-                    "description": "Updated description"
-                }
-                update_success, _ = self.run_test(
-                    "Update Shift",
-                    "PUT",
-                    f"shifts/{shift_id}",
-                    200,
-                    data=update_data
-                )
-                
-                # Test delete shift
-                if update_success:
-                    delete_success, _ = self.run_test(
-                        "Delete Shift",
-                        "DELETE",
-                        f"shifts/{shift_id}",
-                        200
-                    )
-                    return delete_success
-                return update_success
-            return create_success
-        return success
-
-    def test_designations_endpoints(self):
-        """Test designation management endpoints (HR Manager only)"""
-        if not self.current_user or self.current_user.get('role') != 'hr_manager':
-            print("⚠️  Skipping designations tests - not HR manager")
-            return True
-
-        # Get designations
-        success, response = self.run_test(
-            "Get Designations",
-            "GET",
-            "designations",
-            200
-        )
-        if success:
-            designations = response if isinstance(response, list) else response.get('designations', [])
-            print(f"   Found {len(designations)} designations")
-            
-            # Test create designation
-            test_designation = {
-                "name": f"Test Designation {datetime.now().strftime('%H%M%S')}",
-                "description": "Test designation for API testing",
-                "level": "Mid-Level"
-            }
-            create_success, create_response = self.run_test(
-                "Create Designation",
-                "POST",
-                "designations",
-                201,
-                data=test_designation
-            )
-            
-            if create_success:
-                designation_id = create_response.get('id')
-                print(f"   Created designation with ID: {designation_id}")
-                
-                # Test update designation
-                update_data = {
-                    "name": test_designation["name"] + " Updated",
-                    "description": "Updated description",
-                    "level": "Senior-Level"
-                }
-                update_success, _ = self.run_test(
-                    "Update Designation",
-                    "PUT",
-                    f"designations/{designation_id}",
-                    200,
-                    data=update_data
-                )
-                
-                # Test delete designation
-                if update_success:
-                    delete_success, _ = self.run_test(
-                        "Delete Designation",
-                        "DELETE",
-                        f"designations/{designation_id}",
-                        200
-                    )
-                    return delete_success
-                return update_success
-            return create_success
-        return success
-
-    def test_salary_slabs_endpoints(self):
-        """Test salary slab management endpoints (HR Manager only)"""
-        if not self.current_user or self.current_user.get('role') != 'hr_manager':
-            print("⚠️  Skipping salary slabs tests - not HR manager")
-            return True
-
-        # Get salary slabs
-        success, response = self.run_test(
-            "Get Salary Slabs",
-            "GET",
-            "salary-slabs",
-            200
-        )
-        if success:
-            slabs = response if isinstance(response, list) else response.get('salary_slabs', [])
-            print(f"   Found {len(slabs)} salary slabs")
-            
-            # Test create salary slab
-            test_slab = {
-                "name": f"Test Slab {datetime.now().strftime('%H%M%S')}",
-                "min_salary": 30000,
-                "max_salary": 50000,
-                "description": "Test salary slab for API testing"
-            }
-            create_success, create_response = self.run_test(
-                "Create Salary Slab",
-                "POST",
-                "salary-slabs",
-                201,
-                data=test_slab
-            )
-            
-            if create_success:
-                slab_id = create_response.get('id')
-                print(f"   Created salary slab with ID: {slab_id}")
-                
-                # Test update salary slab
-                update_data = {
-                    "name": test_slab["name"] + " Updated",
-                    "min_salary": 35000,
-                    "max_salary": 55000,
-                    "description": "Updated description"
-                }
-                update_success, _ = self.run_test(
-                    "Update Salary Slab",
-                    "PUT",
-                    f"salary-slabs/{slab_id}",
-                    200,
-                    data=update_data
-                )
-                
-                # Test delete salary slab
-                if update_success:
-                    delete_success, _ = self.run_test(
-                        "Delete Salary Slab",
-                        "DELETE",
-                        f"salary-slabs/{slab_id}",
-                        200
-                    )
-                    return delete_success
-                return update_success
-            return create_success
-        return success
-
-    def test_holidays_endpoints(self):
-        """Test holiday management endpoints (HR Manager only)"""
-        if not self.current_user or self.current_user.get('role') != 'hr_manager':
-            print("⚠️  Skipping holidays tests - not HR manager")
-            return True
-
-        # Get holidays
-        success, response = self.run_test(
-            "Get Holidays",
-            "GET",
-            "holidays",
-            200
-        )
-        if success:
-            holidays = response if isinstance(response, list) else response.get('holidays', [])
-            print(f"   Found {len(holidays)} holidays")
-            
-            # Test create holiday
-            test_holiday = {
-                "name": f"Test Holiday {datetime.now().strftime('%H%M%S')}",
-                "date": "2024-12-25",
-                "description": "Test holiday for API testing",
-                "type": "public"
-            }
-            create_success, create_response = self.run_test(
-                "Create Holiday",
-                "POST",
-                "holidays",
-                201,
-                data=test_holiday
-            )
-            
-            if create_success:
-                holiday_id = create_response.get('id')
-                print(f"   Created holiday with ID: {holiday_id}")
-                
-                # Test update holiday
-                update_data = {
-                    "name": test_holiday["name"] + " Updated",
-                    "date": "2024-12-26",
-                    "description": "Updated description",
-                    "type": "optional"
-                }
-                update_success, _ = self.run_test(
-                    "Update Holiday",
-                    "PUT",
-                    f"holidays/{holiday_id}",
-                    200,
-                    data=update_data
-                )
-                
-                # Test delete holiday
-                if update_success:
-                    delete_success, _ = self.run_test(
-                        "Delete Holiday",
-                        "DELETE",
-                        f"holidays/{holiday_id}",
-                        200
-                    )
-                    return delete_success
-                return update_success
-            return create_success
-        return success
-
-    def test_terminations_endpoints(self):
-        """Test termination management endpoints (HR Manager only)"""
-        if not self.current_user or self.current_user.get('role') != 'hr_manager':
-            print("⚠️  Skipping terminations tests - not HR manager")
-            return True
-
-        # Get terminations
-        success, response = self.run_test(
-            "Get Terminations",
-            "GET",
-            "terminations",
-            200
-        )
-        if success:
-            terminations = response if isinstance(response, list) else response.get('terminations', [])
-            print(f"   Found {len(terminations)} terminations")
-            
-            # Test create termination
-            test_termination = {
-                "employee_id": "EMP001",
-                "termination_type": "voluntary",
-                "termination_date": "2024-12-31",
-                "description": "Test termination for API testing",
-                "reason": "Testing purposes"
-            }
-            create_success, create_response = self.run_test(
-                "Create Termination",
-                "POST",
-                "terminations",
-                201,
-                data=test_termination
-            )
-            
-            if create_success:
-                termination_id = create_response.get('id')
-                print(f"   Created termination with ID: {termination_id}")
-                
-                # Test update termination
-                update_data = {
-                    "employee_id": "EMP001",
-                    "termination_type": "involuntary",
-                    "termination_date": "2024-12-30",
-                    "description": "Updated description",
-                    "reason": "Updated reason"
-                }
-                update_success, _ = self.run_test(
-                    "Update Termination",
-                    "PUT",
-                    f"terminations/{termination_id}",
-                    200,
-                    data=update_data
-                )
-                
-                # Test delete termination
-                if update_success:
-                    delete_success, _ = self.run_test(
-                        "Delete Termination",
-                        "DELETE",
-                        f"terminations/{termination_id}",
-                        200
-                    )
-                    return delete_success
-                return update_success
-            return create_success
-        return success
-
-    def test_resignations_endpoints(self):
-        """Test resignation management endpoints (HR Manager only)"""
-        if not self.current_user or self.current_user.get('role') != 'hr_manager':
-            print("⚠️  Skipping resignations tests - not HR manager")
-            return True
-
-        # Get resignations
-        success, response = self.run_test(
-            "Get Resignations",
-            "GET",
-            "resignations",
-            200
-        )
-        if success:
-            resignations = response if isinstance(response, list) else response.get('resignations', [])
-            print(f"   Found {len(resignations)} resignations")
-            
-            # Test create resignation
-            test_resignation = {
-                "employee_id": "EMP001",
-                "resignation_date": "2024-12-31",
-                "last_working_day": "2025-01-31",
-                "reason": "Test resignation for API testing",
-                "status": "pending"
-            }
-            create_success, create_response = self.run_test(
-                "Create Resignation",
-                "POST",
-                "resignations",
-                201,
-                data=test_resignation
-            )
-            
-            if create_success:
-                resignation_id = create_response.get('id')
-                print(f"   Created resignation with ID: {resignation_id}")
-                
-                # Test update resignation
-                update_data = {
-                    "employee_id": "EMP001",
-                    "resignation_date": "2024-12-30",
-                    "last_working_day": "2025-01-30",
-                    "reason": "Updated reason",
-                    "status": "approved"
-                }
-                update_success, _ = self.run_test(
-                    "Update Resignation",
-                    "PUT",
-                    f"resignations/{resignation_id}",
-                    200,
-                    data=update_data
-                )
-                
-                # Test delete resignation
-                if update_success:
-                    delete_success, _ = self.run_test(
-                        "Delete Resignation",
-                        "DELETE",
-                        f"resignations/{resignation_id}",
-                        200
-                    )
-                    return delete_success
-                return update_success
-            return create_success
-        return success
-
-    def test_notifications_endpoints(self):
-        """Test notification endpoints"""
-        if not self.current_user:
-            print("⚠️  Skipping notifications tests - not logged in")
-            return True
-
-        # Get notifications
-        success, response = self.run_test(
-            "Get Notifications",
-            "GET",
-            "notifications",
-            200
-        )
-        if success:
-            notifications = response.get('notifications', []) if isinstance(response, dict) else []
-            unread_count = response.get('unread_count', 0) if isinstance(response, dict) else 0
-            print(f"   Found {len(notifications)} notifications ({unread_count} unread)")
-            
-            # Test mark all read
-            mark_all_success, _ = self.run_test(
-                "Mark All Notifications Read",
-                "POST",
-                "notifications/read-all",
-                200
-            )
-            return mark_all_success
-        return success
-
-    def test_roles_users_endpoints(self):
-        """Test roles and users management endpoints (HR Manager only)"""
-        if not self.current_user or self.current_user.get('role') != 'hr_manager':
-            print("⚠️  Skipping roles/users tests - not HR manager")
-            return True
-
-        # Test get roles
-        success1, response = self.run_test(
-            "Get Roles",
-            "GET",
-            "roles",
-            200
-        )
-        if success1:
-            roles = response if isinstance(response, list) else response.get('roles', [])
-            print(f"   Found {len(roles)} roles")
-
-        # Test create custom role
-        test_role = {
-            "name": f"Test Role {datetime.now().strftime('%H%M%S')}",
-            "description": "Test role for API testing",
-            "permissions": ["read_employees", "manage_attendance"]
-        }
-        success2, create_response = self.run_test(
-            "Create Role",
-            "POST",
-            "roles",
-            201,
-            data=test_role
-        )
+        if abs(taxable - expected_taxable) > 1:
+            raise Exception(f"Taxable income mismatch: expected {expected_taxable}, got {taxable}")
+        if abs(slab_tax - expected_slab_tax) > 1:
+            raise Exception(f"Slab tax mismatch: expected {expected_slab_tax}, got {slab_tax}")
+        if abs(rebate - expected_rebate) > 1:
+            raise Exception(f"Rebate 87A mismatch: expected {expected_rebate}, got {rebate}")
+        if abs(total_tax - expected_total) > 1:
+            raise Exception(f"Total tax mismatch: expected {expected_total}, got {total_tax}")
         
-        role_id = None
-        if success2:
-            role_id = create_response.get('id')
-            print(f"   Created role with ID: {role_id}")
+        log(f"  ✓ Tax correctness check passed for gross=1200000, new regime (87A rebate)")
 
-        # Test get users
-        success3, response = self.run_test(
-            "Get Users",
-            "GET",
-            "users",
-            200
-        )
-        if success3:
-            users = response if isinstance(response, list) else response.get('users', [])
-            print(f"   Found {len(users)} users")
 
-        # Clean up - delete test role if created
-        if role_id:
-            self.run_test(
-                "Delete Test Role",
-                "DELETE",
-                f"roles/{role_id}",
-                200
-            )
+def check_pf_compute_correctness(data: Dict, resp):
+    """Check PF computation correctness."""
+    pf_data = data.get("pf", {})
+    esi_data = data.get("esi", {})
+    monthly_basic = data.get("monthly_basic", 0)
+    monthly_gross = data.get("monthly_gross", 0)
+    
+    log(f"  PF Compute Result: basic={monthly_basic}, gross={monthly_gross}")
+    log(f"    PF: {pf_data}")
+    log(f"    ESI: {esi_data}")
+    
+    # Test case: basic=25000 with default ceiling (15000)
+    if abs(monthly_basic - 25000) < 1:
+        expected_pf_wage = 15000
+        expected_employee_pf = 1800  # 12% of 15000
+        expected_employer_eps = 1250  # 8.33% of 15000
+        expected_employer_epf = 550  # 12% of 15000 - 1250
+        expected_edli = 75  # 0.5% of 15000
+        expected_admin = 75  # 0.5% of 15000
+        
+        if abs(pf_data.get("pf_wage", 0) - expected_pf_wage) > 1:
+            raise Exception(f"PF wage mismatch: expected {expected_pf_wage}, got {pf_data.get('pf_wage')}")
+        if abs(pf_data.get("employee_pf", 0) - expected_employee_pf) > 1:
+            raise Exception(f"Employee PF mismatch: expected {expected_employee_pf}, got {pf_data.get('employee_pf')}")
+        if abs(pf_data.get("employer_eps", 0) - expected_employer_eps) > 1:
+            raise Exception(f"Employer EPS mismatch: expected {expected_employer_eps}, got {pf_data.get('employer_eps')}")
+        if abs(pf_data.get("employer_epf", 0) - expected_employer_epf) > 1:
+            raise Exception(f"Employer EPF mismatch: expected {expected_employer_epf}, got {pf_data.get('employer_epf')}")
+        if abs(pf_data.get("edli", 0) - expected_edli) > 1:
+            raise Exception(f"EDLI mismatch: expected {expected_edli}, got {pf_data.get('edli')}")
+        if abs(pf_data.get("admin_charges", 0) - expected_admin) > 1:
+            raise Exception(f"Admin charges mismatch: expected {expected_admin}, got {pf_data.get('admin_charges')}")
+        
+        log(f"  ✓ PF correctness check passed for basic=25000")
+    
+    # ESI check: gross > 21000 should have ESI not applicable
+    if monthly_gross > 21000:
+        if esi_data.get("applicable", True):
+            raise Exception(f"ESI should not be applicable for gross={monthly_gross}")
+        if esi_data.get("employee_esi", 0) != 0:
+            raise Exception(f"Employee ESI should be 0 for gross={monthly_gross}")
+        log(f"  ✓ ESI not applicable for gross > 21000")
+    
+    # ESI check: gross <= 21000 should have ESI applicable
+    if 0 < monthly_gross <= 21000:
+        if not esi_data.get("applicable", False):
+            raise Exception(f"ESI should be applicable for gross={monthly_gross}")
+        expected_emp_esi = round(monthly_gross * 0.75 / 100, 2)
+        expected_empr_esi = round(monthly_gross * 3.25 / 100, 2)
+        if abs(esi_data.get("employee_esi", 0) - expected_emp_esi) > 1:
+            raise Exception(f"Employee ESI mismatch: expected {expected_emp_esi}, got {esi_data.get('employee_esi')}")
+        if abs(esi_data.get("employer_esi", 0) - expected_empr_esi) > 1:
+            raise Exception(f"Employer ESI mismatch: expected {expected_empr_esi}, got {esi_data.get('employer_esi')}")
+        log(f"  ✓ ESI correctness check passed for gross={monthly_gross}")
 
-        return success1 and success2 and success3
 
-    def test_onboarding_endpoints(self):
-        """Test onboarding endpoints (HR Manager only)"""
-        if not self.current_user or self.current_user.get('role') != 'hr_manager':
-            print("⚠️  Skipping onboarding tests - not HR manager")
-            return True
-
-        # Test get onboarding templates
-        success1, response = self.run_test(
-            "Get Onboarding Templates",
-            "GET",
-            "onboarding/templates",
-            200
-        )
-        if success1:
-            templates = response if isinstance(response, list) else response.get('templates', [])
-            print(f"   Found {len(templates)} onboarding templates")
-
-        # Test get onboarding checklists
-        success2, response = self.run_test(
-            "Get Onboarding Checklists",
-            "GET",
-            "onboarding",
-            200
-        )
-        if success2:
-            checklists = response if isinstance(response, list) else response.get('checklists', [])
-            print(f"   Found {len(checklists)} onboarding checklists")
-
-        # Test create onboarding template
-        test_template = {
-            "name": f"Test Template {datetime.now().strftime('%H%M%S')}",
-            "description": "Test onboarding template",
-            "items": [
-                {"title": "Complete profile", "description": "Fill out personal information"},
-                {"title": "IT setup", "description": "Get laptop and access credentials"}
+def run_tests():
+    """Run all tests."""
+    global passed, failed
+    
+    print("\n" + "="*80)
+    print("BACKEND TESTING: Tax & PF/ESI Management + Payroll")
+    print("="*80 + "\n")
+    
+    # ========== LOGIN ==========
+    print("\n--- LOGIN TESTS ---")
+    login(SUPER_ADMIN, "super_admin")
+    login(HR_ACME, "hr_acme")
+    login(HR_TECH, "hr_tech")
+    login(EMP_JOHN, "emp_john")
+    login(EMP_EMILY, "emp_emily")
+    login(EMP_ALEX, "emp_alex")
+    
+    if not all([tokens.get(k) for k in ["super_admin", "hr_acme", "hr_tech", "emp_john", "emp_emily", "emp_alex"]]):
+        log("Not all logins successful, aborting tests", "FAIL")
+        return
+    
+    # ========== TAX SETTINGS TESTS ==========
+    print("\n--- TAX SETTINGS TESTS ---")
+    
+    # GET tax settings (any authenticated user)
+    test_endpoint("GET", "/tax/settings", tokens["emp_john"], 200, "GET /tax/settings (employee)")
+    test_endpoint("GET", "/tax/settings", tokens["hr_acme"], 200, "GET /tax/settings (HR)")
+    test_endpoint("GET", "/tax/settings", tokens["super_admin"], 200, "GET /tax/settings (super admin)")
+    
+    # GET with financial_year param
+    test_endpoint("GET", "/tax/settings", tokens["hr_acme"], 200, "GET /tax/settings?financial_year=2025-26", params={"financial_year": "2025-26"})
+    
+    # PUT tax settings (only admin/hr)
+    test_endpoint("PUT", "/tax/settings", tokens["hr_acme"], 200, "PUT /tax/settings (HR)", 
+                  json_data={"default_regime": "old", "cess_rate": 4})
+    
+    # Employee cannot PUT settings (403)
+    test_endpoint("PUT", "/tax/settings", tokens["emp_john"], 403, "PUT /tax/settings (employee - should fail)")
+    
+    # POST reset settings
+    test_endpoint("POST", "/tax/settings/reset", tokens["hr_acme"], 200, "POST /tax/settings/reset (HR)")
+    test_endpoint("POST", "/tax/settings/reset", tokens["emp_john"], 403, "POST /tax/settings/reset (employee - should fail)")
+    
+    # ========== TAX DECLARATIONS TESTS ==========
+    print("\n--- TAX DECLARATIONS TESTS ---")
+    
+    # GET my declarations (creates stub if absent)
+    test_endpoint("GET", "/tax/declarations/me", tokens["emp_john"], 200, "GET /tax/declarations/me (John)")
+    
+    # PUT my declaration (draft)
+    test_endpoint("PUT", "/tax/declarations/me", tokens["emp_john"], 200, "PUT /tax/declarations/me (draft)",
+                  json_data={
+                      "regime": "old",
+                      "declarations": {
+                          "section_80c": 150000,
+                          "section_80d_self": 25000,
+                          "hra_rent_paid": 240000,
+                          "hra_city": "metro"
+                      },
+                      "status": "draft"
+                  })
+    
+    # PUT my declaration (submitted)
+    resp = test_endpoint("PUT", "/tax/declarations/me", tokens["emp_john"], 200, "PUT /tax/declarations/me (submitted)",
+                  json_data={
+                      "regime": "old",
+                      "declarations": {
+                          "section_80c": 150000,
+                          "section_80d_self": 25000,
+                          "hra_rent_paid": 240000,
+                          "hra_city": "metro"
+                      },
+                      "status": "submitted"
+                  })
+    
+    declaration_id = None
+    if resp and resp.status_code == 200:
+        declaration_id = resp.json().get("id")
+    
+    # GET all declarations (HR only)
+    test_endpoint("GET", "/tax/declarations", tokens["hr_acme"], 200, "GET /tax/declarations (HR)")
+    test_endpoint("GET", "/tax/declarations", tokens["hr_acme"], 200, "GET /tax/declarations?status=submitted", 
+                  params={"status": "submitted"})
+    test_endpoint("GET", "/tax/declarations", tokens["emp_john"], 403, "GET /tax/declarations (employee - should fail)")
+    
+    # POST decision (approve)
+    if declaration_id:
+        test_endpoint("POST", f"/tax/declarations/{declaration_id}/decision", tokens["hr_acme"], 200,
+                      "POST /tax/declarations/{id}/decision (approve)",
+                      json_data={"action": "approve", "note": "Approved by HR"})
+        
+        # Try to edit approved declaration (should fail with 400)
+        test_endpoint("PUT", "/tax/declarations/me", tokens["emp_john"], 400, 
+                      "PUT /tax/declarations/me (after approval - should fail)")
+    
+    # ========== TAX COMPUTE TESTS ==========
+    print("\n--- TAX COMPUTE TESTS ---")
+    
+    # Test case 1: New regime, gross=1500000
+    test_endpoint("POST", "/tax/compute", tokens["super_admin"], 200, "POST /tax/compute (1.5M new regime)",
+                  json_data={"gross_annual": 1500000, "regime": "new"},
+                  check_response=check_tax_compute_correctness)
+    
+    # Test case 2: New regime, gross=1200000 (87A rebate)
+    test_endpoint("POST", "/tax/compute", tokens["super_admin"], 200, "POST /tax/compute (1.2M new regime - 87A)",
+                  json_data={"gross_annual": 1200000, "regime": "new"},
+                  check_response=check_tax_compute_correctness)
+    
+    # ========== TAX COMPARE TESTS ==========
+    print("\n--- TAX COMPARE TESTS ---")
+    
+    test_endpoint("GET", "/tax/compare/me", tokens["emp_john"], 200, "GET /tax/compare/me (John)")
+    
+    # ========== TAX REPORTS TESTS ==========
+    print("\n--- TAX REPORTS TESTS ---")
+    
+    # TDS summary CSV (HR only)
+    resp = test_endpoint("GET", "/tax/reports/tds-summary", tokens["hr_acme"], 200, 
+                         "GET /tax/reports/tds-summary (HR)", params={"financial_year": "2025-26"})
+    if resp and resp.headers.get('content-type') == 'text/csv':
+        log("  ✓ TDS summary returned CSV format")
+    
+    test_endpoint("GET", "/tax/reports/tds-summary", tokens["emp_john"], 403, 
+                  "GET /tax/reports/tds-summary (employee - should fail)")
+    
+    # ========== PF SETTINGS TESTS ==========
+    print("\n--- PF SETTINGS TESTS ---")
+    
+    # GET PF settings (any authenticated user)
+    test_endpoint("GET", "/pf/settings", tokens["emp_john"], 200, "GET /pf/settings (employee)")
+    test_endpoint("GET", "/pf/settings", tokens["hr_acme"], 200, "GET /pf/settings (HR)")
+    
+    # PUT PF settings (only admin/hr)
+    test_endpoint("PUT", "/pf/settings", tokens["hr_acme"], 200, "PUT /pf/settings (HR)",
+                  json_data={"pf_wage_ceiling": 15000, "pf_apply_ceiling": True, "esi_enabled": True})
+    
+    test_endpoint("PUT", "/pf/settings", tokens["emp_john"], 403, "PUT /pf/settings (employee - should fail)")
+    
+    # POST reset PF settings
+    test_endpoint("POST", "/pf/settings/reset", tokens["hr_acme"], 200, "POST /pf/settings/reset (HR)")
+    test_endpoint("POST", "/pf/settings/reset", tokens["emp_john"], 403, "POST /pf/settings/reset (employee - should fail)")
+    
+    # ========== PF STATUTORY INFO TESTS ==========
+    print("\n--- PF STATUTORY INFO TESTS ---")
+    
+    # Get employee IDs from user_data
+    john_emp_id = user_data.get("emp_john", {}).get("employee_id")
+    emily_emp_id = user_data.get("emp_emily", {}).get("employee_id")
+    alex_emp_id = user_data.get("emp_alex", {}).get("employee_id")
+    
+    if john_emp_id:
+        # GET statutory info (employee can read own)
+        test_endpoint("GET", f"/pf/employees/{john_emp_id}/statutory", tokens["emp_john"], 200,
+                      "GET /pf/employees/{id}/statutory (John - own)")
+        
+        # HR can read employee in their tenant
+        test_endpoint("GET", f"/pf/employees/{john_emp_id}/statutory", tokens["hr_acme"], 200,
+                      "GET /pf/employees/{id}/statutory (HR Acme - John)")
+        
+        # Employee cannot read another employee's data (403)
+        if emily_emp_id:
+            test_endpoint("GET", f"/pf/employees/{emily_emp_id}/statutory", tokens["emp_john"], 403,
+                          "GET /pf/employees/{id}/statutory (John reading Emily - should fail)")
+        
+        # HR of different tenant cannot read (403)
+        if alex_emp_id:
+            test_endpoint("GET", f"/pf/employees/{alex_emp_id}/statutory", tokens["hr_acme"], 403,
+                          "GET /pf/employees/{id}/statutory (HR Acme reading Tech employee - should fail)")
+        
+        # PUT statutory info (employee can only update pan/aadhaar/uan)
+        test_endpoint("PUT", f"/pf/employees/{john_emp_id}/statutory", tokens["emp_john"], 200,
+                      "PUT /pf/employees/{id}/statutory (John - pan/aadhaar)",
+                      json_data={"pan": "ABCDE1234F", "aadhaar_last4": "1234", "uan": "123456789012"})
+        
+        # Employee tries to update pf_opt_in (should be silently dropped, still 200)
+        test_endpoint("PUT", f"/pf/employees/{john_emp_id}/statutory", tokens["emp_john"], 200,
+                      "PUT /pf/employees/{id}/statutory (John - pf_opt_in should be ignored)",
+                      json_data={"pf_opt_in": False})
+        
+        # HR can update all fields
+        test_endpoint("PUT", f"/pf/employees/{john_emp_id}/statutory", tokens["hr_acme"], 200,
+                      "PUT /pf/employees/{id}/statutory (HR - all fields)",
+                      json_data={
+                          "pan": "ABCDE1234F",
+                          "aadhaar_last4": "1234",
+                          "uan": "123456789012",
+                          "pf_account_no": "PF123456",
+                          "pf_join_date": "2020-01-01",
+                          "pf_opt_in": True,
+                          "esi_number": "ESI123456",
+                          "esi_opt_in": True
+                      })
+    
+    # ========== PF COMPUTE TESTS ==========
+    print("\n--- PF COMPUTE TESTS ---")
+    
+    if john_emp_id:
+        # Compute PF for employee (basic=25000 expected from 50000 salary)
+        test_endpoint("GET", f"/pf/compute/{john_emp_id}", tokens["emp_john"], 200,
+                      "GET /pf/compute/{id} (John - own)",
+                      check_response=check_pf_compute_correctness)
+        
+        # HR can compute for employee in their tenant
+        test_endpoint("GET", f"/pf/compute/{john_emp_id}", tokens["hr_acme"], 200,
+                      "GET /pf/compute/{id} (HR Acme - John)")
+        
+        # Employee cannot compute for another employee (403)
+        if emily_emp_id:
+            test_endpoint("GET", f"/pf/compute/{emily_emp_id}", tokens["emp_john"], 403,
+                          "GET /pf/compute/{id} (John reading Emily - should fail)")
+    
+    # ========== PF REPORTS TESTS ==========
+    print("\n--- PF REPORTS TESTS ---")
+    
+    # PF challan CSV (HR only, requires month param)
+    test_endpoint("GET", "/pf/reports/challan", tokens["hr_acme"], 400,
+                  "GET /pf/reports/challan (no month param - should fail)")
+    
+    resp = test_endpoint("GET", "/pf/reports/challan", tokens["hr_acme"], 200,
+                         "GET /pf/reports/challan?month=2026-05 (HR)",
+                         params={"month": "2026-05"})
+    if resp and resp.headers.get('content-type') == 'text/csv':
+        log("  ✓ PF challan returned CSV format")
+    
+    test_endpoint("GET", "/pf/reports/challan", tokens["emp_john"], 403,
+                  "GET /pf/reports/challan (employee - should fail)",
+                  params={"month": "2026-05"})
+    
+    # PF statement (employee - own)
+    test_endpoint("GET", "/pf/statement/me", tokens["emp_john"], 200, "GET /pf/statement/me (John)")
+    
+    # ========== PAYROLL TESTS ==========
+    print("\n--- PAYROLL TESTS ---")
+    
+    if john_emp_id:
+        # Generate payslip (HR only)
+        def check_payslip_fields(data, resp):
+            """Check that payslip has new fields."""
+            required_fields = [
+                "currency", "currency_symbol", "pf_wage", "employer_epf", "employer_eps",
+                "edli", "admin_charges", "esi_employee", "esi_employer", "tax_regime",
+                "annual_tax", "taxable_income", "financial_year"
             ]
-        }
-        success3, create_response = self.run_test(
-            "Create Onboarding Template",
-            "POST",
-            "onboarding/templates",
-            201,
-            data=test_template
-        )
+            for field in required_fields:
+                if field not in data:
+                    raise Exception(f"Missing field in payslip: {field}")
+            
+            if data.get("currency") != "INR":
+                raise Exception(f"Currency should be INR, got {data.get('currency')}")
+            if data.get("currency_symbol") != "₹":
+                raise Exception(f"Currency symbol should be ₹, got {data.get('currency_symbol')}")
+            
+            log(f"  ✓ Payslip has all required fields including new Tax/PF fields")
         
-        template_id = None
-        if success3:
-            template_id = create_response.get('id')
-            print(f"   Created template with ID: {template_id}")
-
-        # Clean up - delete test template if created
-        if template_id:
-            self.run_test(
-                "Delete Test Template",
-                "DELETE",
-                f"onboarding/templates/{template_id}",
-                200
-            )
-
-        return success1 and success2 and success3
-
-    def test_billing_endpoints(self):
-        """Test billing endpoints (HR Manager only)"""
-        if not self.current_user or self.current_user.get('role') != 'hr_manager':
-            print("⚠️  Skipping billing tests - not HR manager")
-            return True
-
-        # Test get billing plans
-        success1, response = self.run_test(
-            "Get Billing Plans",
-            "GET",
-            "billing/plans",
-            200
-        )
-        if success1:
-            plans = response if isinstance(response, list) else response.get('plans', [])
-            print(f"   Found {len(plans)} billing plans")
-            for plan in plans[:4]:  # Show first 4 plans
-                name = plan.get('name', 'Unknown')
-                price = plan.get('price', 0)
-                currency = plan.get('currency', 'INR')
-                print(f"     - {name}: {price} {currency}")
-
-        # Test create demo order (Razorpay demo mode)
-        test_order = {
-            "plan_id": "basic",
-            "amount": 999,
-            "currency": "INR"
-        }
-        success2, response = self.run_test(
-            "Create Demo Order",
-            "POST",
-            "billing/create-order",
-            200,
-            data=test_order
-        )
-        if success2:
-            order_id = response.get('order_id', 'Unknown')
-            print(f"   Created demo order: {order_id}")
-
-        # Test billing history
-        success3, response = self.run_test(
-            "Get Billing History",
-            "GET",
-            "billing/history",
-            200
-        )
-        if success3:
-            history = response if isinstance(response, list) else response.get('history', [])
-            print(f"   Found {len(history)} billing history records")
-
-        return success1 and success2 and success3
-
-    def test_upload_endpoint(self):
-        """Test file upload endpoint"""
-        if not self.current_user:
-            print("⚠️  Skipping upload tests - not logged in")
-            return True
-
-        # Test upload endpoint with dummy data (since we can't upload actual files in this test)
-        # This will test the endpoint availability and basic validation
-        success, response = self.run_test(
-            "Test Upload Endpoint",
-            "POST",
-            "upload",
-            400  # Expect 400 since we're not sending actual file data
-        )
+        resp = test_endpoint("POST", "/payroll/generate", tokens["hr_acme"], 200,
+                      "POST /payroll/generate (HR)",
+                      json_data={"employee_id": john_emp_id, "month": 5, "year": 2026},
+                      check_response=check_payslip_fields)
         
-        # 400 is expected since we're not sending proper file data
-        # The endpoint should exist and respond with validation error
-        print("   Upload endpoint is accessible (validation error expected)")
-        return True
+        payslip_id = None
+        if resp and resp.status_code == 200:
+            payslip_id = resp.json().get("id")
+        
+        # Employee cannot generate payslip (403)
+        test_endpoint("POST", "/payroll/generate", tokens["emp_john"], 403,
+                      "POST /payroll/generate (employee - should fail)",
+                      json_data={"employee_id": john_emp_id, "month": 5, "year": 2026})
+        
+        # Generate bulk payslips (HR only)
+        test_endpoint("POST", "/payroll/generate-bulk", tokens["hr_acme"], 200,
+                      "POST /payroll/generate-bulk (HR)",
+                      json_data={"month": 5, "year": 2026})
+        
+        test_endpoint("POST", "/payroll/generate-bulk", tokens["emp_john"], 403,
+                      "POST /payroll/generate-bulk (employee - should fail)",
+                      json_data={"month": 5, "year": 2026})
+        
+        # List payslips
+        test_endpoint("GET", "/payroll", tokens["emp_john"], 200, "GET /payroll (employee - own)")
+        test_endpoint("GET", "/payroll", tokens["hr_acme"], 200, "GET /payroll (HR - all in tenant)")
+        
+        # Download PDF
+        if payslip_id:
+            resp = test_endpoint("GET", f"/payroll/{payslip_id}/pdf", tokens["emp_john"], 200,
+                          "GET /payroll/{id}/pdf (John - own)")
+            if resp and resp.headers.get('content-type') == 'application/pdf':
+                log("  ✓ Payslip PDF returned application/pdf format")
+            
+            # Employee cannot download another employee's payslip
+            # (We'd need another payslip ID for this, skipping for now)
+    
+    # ========== SUMMARY ==========
+    print("\n" + "="*80)
+    print("TEST SUMMARY")
+    print("="*80)
+    print(f"✅ Passed: {passed}")
+    print(f"❌ Failed: {failed}")
+    print(f"Total: {passed + failed}")
+    
+    if errors:
+        print("\n--- ERRORS ---")
+        for err in errors:
+            print(f"  • {err}")
+    
+    print("\n" + "="*80)
+    
+    return failed == 0
 
-def main():
-    print("🚀 Starting HRMS API Testing...")
-    tester = HRMSAPITester()
-    
-    # Test 1: Super Admin Login (should NOT require password change)
-    print("\n" + "="*50)
-    print("TESTING SUPER ADMIN FLOW")
-    print("="*50)
-    
-    if not tester.test_login("admin@hrms.com", "admin123", expect_first_login=False):
-        print("❌ Super Admin login failed, stopping tests")
-        return 1
-    
-    # Test Super Admin dashboard
-    tester.test_dashboard()
-    
-    # Test tenant management
-    tester.test_tenant_endpoints()
-    
-    # Test logout
-    tester.test_logout()
-    
-    # Test 2: HR Manager Login (should NOT require password change)
-    print("\n" + "="*50)
-    print("TESTING HR MANAGER FLOW")
-    print("="*50)
-    
-    if not tester.test_login("hr@acmecorp.com", "1Akash@@", expect_first_login=False):
-        print("❌ HR Manager login failed, stopping tests")
-        return 1
-    
-    # Test dashboard after password change
-    tester.test_dashboard()
-    
-    # Test HR-specific endpoints
-    tester.test_employee_endpoints()
-    tester.test_department_endpoints()
-    tester.test_attendance_endpoints()
-    tester.test_leave_endpoints()
-    tester.test_export_endpoints()
-    
-    # Test new HR modules (10 new endpoints including new features)
-    tester.test_shifts_endpoints()
-    tester.test_designations_endpoints()
-    tester.test_salary_slabs_endpoints()
-    tester.test_holidays_endpoints()
-    tester.test_terminations_endpoints()
-    tester.test_resignations_endpoints()
-    tester.test_notifications_endpoints()
-    
-    # Test NEW FEATURES from review request
-    tester.test_roles_users_endpoints()
-    tester.test_onboarding_endpoints()
-    tester.test_billing_endpoints()
-    tester.test_upload_endpoint()
-    
-    tester.test_profile_endpoints()
-    
-    # Test logout
-    tester.test_logout()
-    
-    # Test 3: Employee Login (should require password change)
-    print("\n" + "="*50)
-    print("TESTING EMPLOYEE FLOW")
-    print("="*50)
-    
-    # Test Emily (as specified in test requirements)
-    if not tester.test_login("emily@acmecorp.com", "9123456781", expect_first_login=True):
-        print("❌ Employee (Emily) login failed, trying John...")
-        # Fallback to John
-        if not tester.test_login("john@acmecorp.com", "9123456780", expect_first_login=True):
-            print("❌ Employee login failed, stopping tests")
-            return 1
-    
-    # Test password change flow - use correct current password for Emily
-    current_password = "9123456781" if "emily" in tester.current_user.get('email', '') else "9123456780"
-    if not tester.test_change_password(current_password, "NewPassword123!"):
-        print("❌ Employee password change failed")
-        return 1
-    
-    # Test employee dashboard
-    tester.test_dashboard()
-    
-    # Test employee-specific endpoints
-    tester.test_attendance_endpoints()
-    tester.test_leave_endpoints()
-    tester.test_profile_endpoints()
-    
-    # Test logout
-    tester.test_logout()
-    
-    # Test 4: Basic API health check
-    print("\n" + "="*50)
-    print("TESTING API HEALTH")
-    print("="*50)
-    
-    tester.run_test("API Health Check", "GET", "", 200)
-    
-    # Print final results
-    print(f"\n📊 Final Results: {tester.tests_passed}/{tester.tests_run} tests passed")
-    success_rate = (tester.tests_passed / tester.tests_run * 100) if tester.tests_run > 0 else 0
-    print(f"📈 Success Rate: {success_rate:.1f}%")
-    
-    if success_rate >= 80:
-        print("🎉 Backend API testing completed successfully!")
-        return 0
-    else:
-        print("⚠️  Backend API testing completed with issues")
-        return 1
 
 if __name__ == "__main__":
-    sys.exit(main())
+    success = run_tests()
+    sys.exit(0 if success else 1)

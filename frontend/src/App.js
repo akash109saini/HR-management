@@ -38,10 +38,14 @@ import RolesUsersManagement from './pages/HR/RolesUsersManagement';
 import OnboardingPage from './pages/HR/OnboardingPage';
 import BillingPage from './pages/HR/BillingPage';
 import AdvanceSalary from './pages/HR/AdvanceSalary';
+import TaxManagement from './pages/HR/TaxManagement';
+import PFManagement from './pages/HR/PFManagement';
 import EmpDashboard from './pages/Employee/Dashboard';
 import MyAttendance from './pages/Employee/MyAttendance';
 import MyLeaves from './pages/Employee/MyLeaves';
 import MyPayslips from './pages/Employee/MyPayslips';
+import MyTaxDeclaration from './pages/Employee/MyTaxDeclaration';
+import MyPFStatement from './pages/Employee/MyPFStatement';
 import Announcements from './pages/Employee/Announcements';
 import ProfilePage from './pages/ProfilePage';
 
@@ -120,6 +124,8 @@ function AppRoutes() {
       <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
       <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
       <Route path="/advance-salary" element={<ProtectedRoute><AdvanceSalary /></ProtectedRoute>} />
+      <Route path="/tax-management" element={<ProtectedRoute><TaxManagement /></ProtectedRoute>} />
+      <Route path="/pf-management" element={<ProtectedRoute><PFManagement /></ProtectedRoute>} />
 
       {/* Profile - accessible to all roles */}
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
@@ -135,6 +141,8 @@ function AppRoutes() {
       <Route path="/my-attendance" element={<ProtectedRoute><MyAttendance /></ProtectedRoute>} />
       <Route path="/my-leaves" element={<ProtectedRoute><MyLeaves /></ProtectedRoute>} />
       <Route path="/my-payslips" element={<ProtectedRoute><MyPayslips /></ProtectedRoute>} />
+      <Route path="/my-tax" element={<ProtectedRoute><MyTaxDeclaration /></ProtectedRoute>} />
+      <Route path="/my-pf" element={<ProtectedRoute><MyPFStatement /></ProtectedRoute>} />
 
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
