@@ -166,6 +166,66 @@ frontend:
         agent: "main"
         comment: "Added show/hide eye toggle buttons on all 3 password fields in ChangePasswordPage. LoginPage already had it."
 
+  - task: "Tax Management UI (HR) - Settings, Calculator, Reports"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/HR/TaxManagement.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "UI tested 2026-05-18. All tabs load correctly (Settings, Employee Declarations, Tax Calculator, Reports). Settings tab: Cess % editable and saves (minor UI overlay issue with Emergent badge blocking save button, workaround with force click works). Tax Calculator: Gross 1500000 → taxable 1425000, tax 97500, monthly TDS 8125 ✓. Reports tab: TDS summary CSV download works. Reset to defaults button present. All functionality working."
+
+  - task: "PF & ESI Management UI (HR) - Settings, Statutory Info, Reports"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/HR/PFManagement.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "UI tested 2026-05-18. All tabs load correctly (Settings, Employee Statutory Info, Reports). Settings tab: wage ceiling toggle works, save shows success toast. Employee Statutory Info: employee selection works, PAN/UAN inputs work, save shows success toast, live PF/ESI preview card displays with all fields (monthly_gross ₹85,000, monthly_basic ₹42,500, employee_pf ₹1,800, employer_epf ₹550.5, employer_eps ₹1,249.5, edli ₹75, admin_charges ₹75, ESI not applicable) ✓. Reports tab: challan CSV download works. All functionality working with correct ₹ symbols."
+
+  - task: "My Tax Declaration UI (Employee) - Declaration & Regime Comparison"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Employee/MyTaxDeclaration.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "UI tested 2026-05-18. Both tabs load correctly (Declaration, Old vs New regime). Declaration tab: regime selector works (correctly disabled when status='approved'), all declaration fields present (Section 80C, HRA rent paid, Section 80D self/parents, etc.), save draft and submit to HR buttons work. Old vs New regime comparison tab: both cards display (new_regime and old_regime), 'Cheaper' badge visible on one card, all tax breakdown fields visible (gross annual, std deduction, exemptions, chapter VI-A, taxable income, slab tax, rebate 87A, cess, annual tax, monthly TDS). All functionality working."
+
+  - task: "My PF Statement UI (Employee) - Statement with Running Totals"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Employee/MyPFStatement.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "UI tested 2026-05-18. Page loads correctly. UAN and PF A/C badges visible in header. 4 summary cards displayed (Employee PF ₹1,800, Employer EPF ₹550.5, Employer EPS ₹1,249.5, Grand total ₹3,600) - all show ₹ symbols ✓. Month-wise contributions table present with columns (Period, PF Wage, Employee PF, Employer EPF, Employer EPS, Running totals). Table shows data for 2026-05 period with ₹ symbols. All functionality working."
+
+  - task: "Payroll UI - Currency Symbol (₹ instead of $)"
+    implemented: true
+    working: false
+    file: "/app/frontend/src/pages/HR/PayrollPage.js"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: "CRITICAL BUG: UI tested 2026-05-18. Payroll page loads correctly and displays payslips, but the currency symbol is hardcoded to $ instead of ₹. Lines 166-168 in PayrollPage.js show: Gross ${p.gross_salary}, Deductions -${p.total_deductions}, Net ${p.net_salary}. Example payslip shows: Gross $78,000, Deductions -$62,072.73, Net $15,927.27. MUST FIX: Replace $ with ₹ symbol and use Indian number formatting. Backend already returns currency=INR and currency_symbol=₹, but frontend is not using it."
+
   - task: "Auth token localStorage storage"
     implemented: true
     working: true
@@ -186,9 +246,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Tax Management module (settings, declarations, compute, reports)"
-    - "PF & ESI Management module (settings, statutory, compute, challan, statement)"
-    - "Payroll integration with new Tax/PF calculators (INR currency, regime-aware TDS)"
+    - "Payroll UI - Currency Symbol (₹ instead of $)"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -339,3 +397,6 @@ All auth boundaries tested and working:
 
   - agent: "testing"
     message: "Completed comprehensive testing of Tax & PF/ESI Management modules and updated Payroll. RESULTS: 43/48 tests passed (5 failures are test expectation issues, not code issues). ALL CRITICAL FUNCTIONALITY WORKING: ✅ Tax settings CRUD ✅ Tax declarations workflow with HR approval ✅ Tax computation correctness verified (FY 2025-26 slabs, 87A rebate, cess) ✅ PF/ESI settings CRUD ✅ Statutory info management ✅ PF computation correctness verified (ceiling, EPS, EPF, EDLI, admin charges) ✅ Payroll integration with new calculators (INR currency, all new fields) ✅ CSV reports (TDS summary, PF challan) ✅ PF statement ✅ Auth boundaries enforced across all endpoints. ISSUES FIXED: (1) Datetime timezone bug in auth_routes.py brute-force check (2) Database seeding password mismatch. MINOR ISSUE: PDF download test failed due to payslip ID change during bulk generation (not a code bug). Ready for production."
+  
+  - agent: "testing"
+    message: "Completed UI testing of Tax & PF/ESI frontend pages (2026-05-18). TESTED: HR Manager - Tax Management page (settings, calculator, reports), PF & ESI page (settings, statutory info, reports); Employee - My Tax page (declaration, regime comparison), My PF page (statement with running totals); Payroll page currency display. RESULTS: ✅ All Tax & PF/ESI pages load correctly with proper navigation ✅ All tabs and UI components present ✅ Tax calculator computation works (gross 1.5M → taxable 1.425M, tax 97.5K, TDS 8.125K) ✅ PF/ESI preview shows correct calculations with ₹ symbols ✅ CSV downloads work (TDS summary, PF challan) ✅ Employee tax declaration workflow functional ✅ Regime comparison shows both cards with 'Cheaper' badge ✅ My PF statement displays 4 summary cards and month-wise table with ₹ symbols. CRITICAL BUG FOUND: ❌ Payroll page (PayrollPage.js lines 166-168) displays $ symbol instead of ₹ for Gross/Deductions/Net columns. MINOR ISSUES: (1) Emergent badge overlay blocks some button clicks (workaround: force click) (2) 404 errors for /api/notifications endpoint (3) My Tax regime selector correctly disabled when status='approved'. ACTION REQUIRED: Fix PayrollPage.js to use ₹ symbol instead of $."
