@@ -64,15 +64,15 @@ export default function MyPayslips() {
                     <div className="flex items-center gap-6">
                       <div className="text-right">
                         <p className="text-xs text-muted-foreground">Gross</p>
-                        <p className="font-medium">${p.gross_salary?.toLocaleString()}</p>
+                        <p className="font-medium">{p.currency_symbol || '\u20b9'}{Number(p.gross_salary || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-muted-foreground">Deductions</p>
-                        <p className="font-medium text-destructive">-${p.total_deductions?.toLocaleString()}</p>
+                        <p className="font-medium text-destructive">-{p.currency_symbol || '\u20b9'}{Number(p.total_deductions || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-muted-foreground">Net</p>
-                        <p className="font-bold text-emerald-600 text-lg">${p.net_salary?.toLocaleString()}</p>
+                        <p className="font-bold text-emerald-600 text-lg">{p.currency_symbol || '\u20b9'}{Number(p.net_salary || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
                       </div>
                       <Button variant="outline" onClick={() => downloadPdf(p.id)} data-testid={`download-payslip-${i}-btn`}>
                         <Download size={14} className="mr-2" />PDF
@@ -80,10 +80,10 @@ export default function MyPayslips() {
                     </div>
                   </div>
                   <div className="mt-4 grid grid-cols-4 gap-4 text-xs text-muted-foreground border-t border-border pt-3">
-                    <div>Basic: <span className="text-foreground">${p.basic_salary?.toLocaleString()}</span></div>
-                    <div>HRA: <span className="text-foreground">${p.hra?.toLocaleString()}</span></div>
-                    <div>PF: <span className="text-foreground">-${p.pf_deduction?.toLocaleString()}</span></div>
-                    {p.advance_deduction > 0 && <div>Advance: <span className="text-destructive">-${p.advance_deduction?.toLocaleString()}</span></div>}
+                    <div>Basic: <span className="text-foreground">{p.currency_symbol || '\u20b9'}{Number(p.basic_salary || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span></div>
+                    <div>HRA: <span className="text-foreground">{p.currency_symbol || '\u20b9'}{Number(p.hra || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span></div>
+                    <div>PF: <span className="text-foreground">-{p.currency_symbol || '\u20b9'}{Number(p.pf_deduction || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span></div>
+                    {p.advance_deduction > 0 && <div>Advance: <span className="text-destructive">-{p.currency_symbol || '\u20b9'}{Number(p.advance_deduction || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span></div>}
                     <div>Days: <span className="text-foreground">{p.days_worked}/{p.days_worked + p.days_absent}</span></div>
                   </div>
                 </CardContent>

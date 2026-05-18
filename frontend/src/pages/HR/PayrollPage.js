@@ -163,9 +163,9 @@ export default function PayrollPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm">{months[p.month - 1]} {p.year}</TableCell>
-                      <TableCell className="text-sm font-medium">${p.gross_salary?.toLocaleString()}</TableCell>
-                      <TableCell className="text-sm text-destructive">-${p.total_deductions?.toLocaleString()}</TableCell>
-                      <TableCell className="text-sm font-semibold text-emerald-600">${p.net_salary?.toLocaleString()}</TableCell>
+                      <TableCell className="text-sm font-medium">{p.currency_symbol || '\u20b9'}{Number(p.gross_salary || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-sm text-destructive">-{p.currency_symbol || '\u20b9'}{Number(p.total_deductions || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-sm font-semibold text-emerald-600">{p.currency_symbol || '\u20b9'}{Number(p.net_salary || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</TableCell>
                       <TableCell className="text-sm">{p.days_worked}/{p.days_worked + p.days_absent}</TableCell>
                       <TableCell>
                         <Button size="sm" variant="outline" onClick={() => downloadPdf(p.id)} data-testid={`download-payslip-${i}-btn`}>
