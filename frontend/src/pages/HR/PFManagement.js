@@ -84,6 +84,28 @@ export default function PFManagement() {
     } catch (err) { setError(formatApiError(err.response?.data?.detail)); }
   };
 
+  const downloadFormReport = async (form) => {
+    setError('');
+    try {
+      const res = await api.get(`/pf/reports/${form}`, { params: { month: reportMonth }, responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `epfo_${form}_${reportMonth}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      // err.response.data is a Blob on failure — try to extract message
+      if (err.response?.data instanceof Blob) {
+        const text = await err.response.data.text();
+        try { setError(formatApiError(JSON.parse(text).detail)); }
+        catch { setError(text || 'Failed to download report'); }
+      } else {
+        setError(formatApiError(err.response?.data?.detail));
+      }
+    }
+  };
+
   if (!settings) return <DashboardLayout><div className="p-8">Loading\u2026</div></DashboardLayout>;
 
   return (
@@ -164,6 +186,7 @@ export default function PFManagement() {
                     <div className="flex items-center gap-2 pt-6"><Switch checked={!!statutory.pf_opt_in} onCheckedChange={(v) => setStatutory({ ...statutory, pf_opt_in: v })} data-testid="pf-opt-in-switch" /><Label>PF opt-in</Label></div>
                     <div><Label>ESI number</Label><Input value={statutory.esi_number || ''} onChange={(e) => setStatutory({ ...statutory, esi_number: e.target.value })} /></div>
                     <div className="flex items-center gap-2 pt-6"><Switch checked={!!statutory.esi_opt_in} onCheckedChange={(v) => setStatutory({ ...statutory, esi_opt_in: v })} /><Label>ESI opt-in</Label></div>
+                    <div className="flex items-center gap-2 pt-6"><Switch checked={!!statutory.nps_opt_in} onCheckedChange={(v) => setStatutory({ ...statutory, nps_opt_in: v })} data-testid="nps-opt-in-switch" /><Label>NPS 80CCD(2) opt-in</Label></div>
                     <div className="flex items-end"><Button onClick={saveStatutory} className="w-full" data-testid="save-statutory-btn"><Save size={14} className="mr-1" /> Save</Button></div>
                   </div>
                 )}
@@ -186,6 +209,7 @@ export default function PFManagement() {
                         <div className="flex justify-between border-t pt-1"><span>ESI applicable</span><Badge variant={preview.esi?.applicable ? 'default' : 'outline'}>{preview.esi?.applicable ? 'Yes' : 'No'}</Badge></div>
                         <div className="flex justify-between"><span>Employee ESI</span><b className="text-destructive">{INR(preview.esi?.employee_esi)}</b></div>
                         <div className="flex justify-between"><span>Employer ESI</span><b>{INR(preview.esi?.employer_esi)}</b></div>
+                        <div className="flex justify-between border-t pt-1"><span>Employer NPS 80CCD(2)</span><b>{INR(preview.nps?.employer_nps)}</b></div>
                       </div>
                     </CardContent>
                   </Card>
@@ -203,6 +227,25 @@ export default function PFManagement() {
                   <Input value={reportMonth} onChange={(e) => setReportMonth(e.target.value)} placeholder="2026-05" data-testid="challan-month-input" />
                 </div>
                 <Button onClick={downloadChallan} data-testid="download-challan-btn"><FileDown size={14} className="mr-1" /> Download CSV</Button>
+              </CardContent>
+            </Card>
+
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle className="text-base">EPFO Statutory Returns</CardTitle>
+                <p className="text-xs text-muted-foreground">Form 5 lists employees who <b>joined</b> PF this month. Form 10 lists those who <b>left</b>.</p>
+              </CardHeader>
+              <CardContent className="flex flex-col sm:flex-row sm:items-end gap-3">
+                <div className="flex-1 max-w-xs">
+                  <Label>Month (YYYY-MM)</Label>
+                  <Input value={reportMonth} onChange={(e) => setReportMonth(e.target.value)} placeholder="2026-05" data-testid="form5-10-month-input" />
+                </div>
+                <Button variant="outline" onClick={() => downloadFormReport('form5')} data-testid="download-form5-btn">
+                  <FileDown size={14} className="mr-1" /> Form 5 (Joiners)
+                </Button>
+                <Button variant="outline" onClick={() => downloadFormReport('form10')} data-testid="download-form10-btn">
+                  <FileDown size={14} className="mr-1" /> Form 10 (Leavers)
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>

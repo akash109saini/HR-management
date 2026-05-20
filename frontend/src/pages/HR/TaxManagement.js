@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import api, { formatApiError } from '../../lib/api';
 import DashboardLayout from '../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -9,7 +9,7 @@ import { Badge } from '../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { Save, RefreshCw, Plus, Trash2, FileDown, CheckCircle2, XCircle, Calculator } from 'lucide-react';
+import { Save, RefreshCw, Plus, Trash2, FileDown, CheckCircle2, XCircle, Calculator, Upload, FileText, Archive } from 'lucide-react';
 
 const INR = (v) => `\u20b9${Number(v || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
@@ -69,6 +69,11 @@ export default function TaxManagement() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [computePreview, setComputePreview] = useState(null);
   const [computeForm, setComputeForm] = useState({ gross_annual: 1200000, regime: 'new' });
+  const [form16EmpId, setForm16EmpId] = useState('');
+  const [importPreview, setImportPreview] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const importFileRef = useRef(null);
+  const pendingFileRef = useRef(null);
 
   const load = async () => {
     setError('');
@@ -124,6 +129,92 @@ export default function TaxManagement() {
       const a = document.createElement('a'); a.href = url; a.download = `tds_summary_${fy}.csv`; a.click();
       URL.revokeObjectURL(url);
     } catch (err) { setError(formatApiError(err.response?.data?.detail)); }
+  };
+
+  const _downloadBlob = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const _readBlobError = async (err) => {
+    if (err.response?.data instanceof Blob) {
+      const text = await err.response.data.text();
+      try { return formatApiError(JSON.parse(text).detail); }
+      catch { return text || 'Failed to download'; }
+    }
+    return formatApiError(err.response?.data?.detail);
+  };
+
+  const downloadForm16Single = async () => {
+    setError(''); setSuccess('');
+    if (!form16EmpId) {
+      setError('Please choose an employee from the declarations list first.');
+      return;
+    }
+    try {
+      const res = await api.get(`/tax/reports/form16/${form16EmpId}`, { params: { financial_year: fy }, responseType: 'blob' });
+      _downloadBlob(new Blob([res.data], { type: 'application/pdf' }), `form16_${form16EmpId}_${fy}.pdf`);
+    } catch (err) {
+      setError(await _readBlobError(err));
+    }
+  };
+
+  const downloadForm16Bulk = async () => {
+    setError(''); setSuccess('');
+    try {
+      const res = await api.get('/tax/reports/form16-bulk', { params: { financial_year: fy }, responseType: 'blob' });
+      _downloadBlob(new Blob([res.data], { type: 'application/zip' }), `form16_bulk_${fy}.zip`);
+    } catch (err) {
+      setError(await _readBlobError(err));
+    }
+  };
+
+  const downloadImportTemplate = async () => {
+    try {
+      const res = await api.get('/tax/declarations/bulk-import/template', { responseType: 'blob' });
+      _downloadBlob(new Blob([res.data]), 'declarations_template.csv');
+    } catch (err) { setError(formatApiError(err.response?.data?.detail)); }
+  };
+
+  const onPreviewFileSelected = async (file) => {
+    setError(''); setSuccess(''); setImportPreview(null);
+    if (!file) return;
+    pendingFileRef.current = file;
+    const fd = new FormData(); fd.append('file', file);
+    try {
+      const { data } = await api.post('/tax/declarations/bulk-import/preview', fd, {
+        params: { financial_year: fy },
+      });
+      setImportPreview(data);
+    } catch (err) { setError(formatApiError(err.response?.data?.detail)); }
+  };
+
+  const commitImport = async () => {
+    if (!pendingFileRef.current) { setError('Select a CSV first.'); return; }
+    if (!importPreview?.valid) { setError('Fix all validation errors first.'); return; }
+    setImporting(true); setError(''); setSuccess('');
+    try {
+      const fd = new FormData(); fd.append('file', pendingFileRef.current);
+      const { data } = await api.post('/tax/declarations/bulk-import/commit', fd, {
+        params: { financial_year: fy },
+      });
+      setSuccess(`Import committed: ${data.inserted} inserted, ${data.updated} updated (of ${data.total_rows} rows).`);
+      setImportPreview(null);
+      pendingFileRef.current = null;
+      if (importFileRef.current) importFileRef.current.value = '';
+      await load();
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      if (d && typeof d === 'object' && d.rejected) {
+        setImportPreview({ ...importPreview, rejected: d.rejected, valid: false });
+        setError(d.message || 'Import rejected.');
+      } else {
+        setError(formatApiError(d));
+      }
+    }
+    setImporting(false);
   };
 
   const runCompute = async () => {
