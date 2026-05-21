@@ -21,6 +21,7 @@ jobs:
         env:
           REACT_APP_BACKEND_URL: ${{ secrets.REACT_APP_BACKEND_URL }}
           REACT_APP_API_URL: ${{ secrets.REACT_APP_BACKEND_URL }}
+          CI: false
         run: |
           cd frontend
           npm install --legacy-peer-deps
