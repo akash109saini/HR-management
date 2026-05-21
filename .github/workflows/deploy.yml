@@ -28,6 +28,23 @@ jobs:
           npm run build
 
 
+      - name: Remote Diagnostics
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          port: ${{ secrets.HOSTINGER_PORT }}
+          script: |
+            echo "=== CURRENT DIRECTORY ==="
+            pwd
+            echo "=== HOME DIRECTORY LISTING ==="
+            ls -la
+            echo "=== PUBLIC_HTML LISTING ==="
+            ls -la public_html || echo "No public_html"
+            echo "=== DIRECTORY STRUCTURE ==="
+            find . -maxdepth 3 -type d
+
       - name: Deploy to Hostinger via SFTP/SSH
         uses: easingthemes/ssh-deploy@v5.1.0
         with:
