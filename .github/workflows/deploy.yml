@@ -27,8 +27,7 @@ jobs:
           npm install --legacy-peer-deps
           npm run build
 
-
-      - name: Remote Diagnostics
+      - name: Find subdomain path and deploy
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
@@ -36,14 +35,12 @@ jobs:
           key: ${{ secrets.HOSTINGER_SSH_KEY }}
           port: ${{ secrets.HOSTINGER_PORT }}
           script: |
-            echo "=== CURRENT DIRECTORY ==="
-            pwd
-            echo "=== HOME DIRECTORY LISTING ==="
-            ls -la
-            echo "=== PUBLIC_HTML LISTING ==="
-            ls -la public_html || echo "No public_html"
-            echo "=== DIRECTORY STRUCTURE ==="
-            find . -maxdepth 3 -type d
+            echo "=== Looking for hr subdomain path ==="
+            find . -maxdepth 4 -type d -name "public_html" 2>/dev/null
+            echo "=== Looking for hr directory ==="
+            find . -maxdepth 4 -type d -iname "*hr*" 2>/dev/null
+            echo "=== All domains ==="
+            ls -la domains/ 2>/dev/null || echo "No domains dir"
 
       - name: Deploy to Hostinger via SFTP/SSH
         uses: easingthemes/ssh-deploy@v5.1.0
@@ -54,5 +51,5 @@ jobs:
           REMOTE_HOST: ${{ secrets.HOSTINGER_HOST }}
           REMOTE_USER: ${{ secrets.HOSTINGER_USER }}
           REMOTE_PORT: ${{ secrets.HOSTINGER_PORT }}
-          TARGET: "public_html/"
+          TARGET: "domains/hr.sairesidencyhostels.com/public_html/"
           EXCLUDE: "/.htaccess"
