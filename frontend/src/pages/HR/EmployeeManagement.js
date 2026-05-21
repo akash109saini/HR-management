@@ -344,41 +344,90 @@ export default function EmployeeManagement() {
                         <div className="flex items-center gap-1">
                           {/* View Modal */}
                           <Dialog open={viewEmployee?.employee_id === emp.employee_id} onOpenChange={o => { if(!o) setViewEmployee(null); }}>
-                            <Button variant="ghost" size="sm" onClick={() => setViewEmployee(emp)} title="View"><Eye size={14} /></Button>
+                            <Button variant="ghost" size="sm" onClick={() => setViewEmployee(emp)} title="View Employee Details" className="text-blue-600 hover:text-blue-700"><Eye size={14} /></Button>
                             {viewEmployee?.employee_id === emp.employee_id && (
-                              <DialogContent className="max-w-lg">
-                                <DialogHeader><DialogTitle>Employee Details: {emp.name}</DialogTitle></DialogHeader>
-                                <div className="space-y-4">
-                                  <div className="flex items-center gap-4">
-                                    {emp.profile_image ? (
-                                      <img src={emp.profile_image} className="w-16 h-16 rounded-full object-cover" alt="" />
-                                    ) : (
-                                      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center"><UserPlus size={20} className="text-muted-foreground" /></div>
-                                    )}
-                                    <div>
-                                      <p className="font-bold text-lg">{emp.name}</p>
-                                      <p className="text-sm text-muted-foreground">{emp.designation || '-'} ({emp.employee_id})</p>
+                              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                                <DialogHeader>
+                                  <DialogTitle className="text-xl font-bold">Employee Profile</DialogTitle>
+                                </DialogHeader>
+                                {/* Header */}
+                                <div className="flex items-center gap-4 p-4 bg-primary/5 rounded-lg border border-border">
+                                  {emp.profile_image ? (
+                                    <img src={emp.profile_image} className="w-20 h-20 rounded-full object-cover border-2 border-primary/20" alt="" />
+                                  ) : (
+                                    <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center border-2 border-primary/20">
+                                      <span className="text-2xl font-bold text-primary">{(emp.name||'?')[0]}</span>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <p className="text-xl font-bold">{emp.name}</p>
+                                    <p className="text-sm text-muted-foreground">{emp.designation || emp.position || '—'}</p>
+                                    <p className="text-xs font-mono text-primary mt-1 bg-primary/10 px-2 py-0.5 rounded inline-block">{emp.employee_id}</p>
+                                    <Badge className="ml-2" variant={emp.status === 'active' ? 'default' : 'secondary'}>{emp.status}</Badge>
+                                  </div>
+                                </div>
+
+                                {/* Contact & Basic */}
+                                <div className="mt-4">
+                                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">Personal Information</p>
+                                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm border border-border rounded-lg p-3">
+                                    <div><span className="text-muted-foreground">Email: </span><span className="font-medium">{emp.email || '—'}</span></div>
+                                    <div><span className="text-muted-foreground">Mobile: </span><span className="font-medium">{emp.mobile || '—'}</span></div>
+                                    <div><span className="text-muted-foreground">Department: </span><span className="font-medium">{emp.department || '—'}</span></div>
+                                    <div><span className="text-muted-foreground">Designation: </span><span className="font-medium">{emp.designation || emp.position || '—'}</span></div>
+                                    <div><span className="text-muted-foreground">Shift: </span><span className="font-medium">{emp.shift || '—'}</span></div>
+                                    <div><span className="text-muted-foreground">Joining Date: </span><span className="font-medium">{emp.joining_date ? emp.joining_date.split('T')[0] : '—'}</span></div>
+                                    <div><span className="text-muted-foreground">Biometric PIN: </span><span className="font-mono font-medium">{emp.biometric_pin || 'Not assigned'}</span></div>
+                                    <div><span className="text-muted-foreground">Role: </span><span className="font-medium capitalize">{emp.role || 'employee'}</span></div>
+                                  </div>
+                                </div>
+
+                                {/* Salary */}
+                                <div className="mt-4">
+                                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">Compensation</p>
+                                  <div className="grid grid-cols-3 gap-3">
+                                    {[
+                                      { label: 'Annual CTC', value: `₹${(emp.salary||0).toLocaleString('en-IN')}` },
+                                      { label: 'Monthly Gross', value: `₹${Math.round((emp.salary||0)/12).toLocaleString('en-IN')}` },
+                                      { label: 'Basic / mo', value: `₹${Math.round((emp.salary||0)/12*0.5).toLocaleString('en-IN')}` },
+                                    ].map(c => (
+                                      <div key={c.label} className="bg-muted/50 rounded-lg p-3 text-center border border-border">
+                                        <p className="text-xs text-muted-foreground">{c.label}</p>
+                                        <p className="font-bold text-sm mt-1">{c.value}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Leave Balance */}
+                                {emp.leave_balance && Object.keys(emp.leave_balance).length > 0 && (
+                                  <div className="mt-4">
+                                    <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">Leave Balance</p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {Object.entries(emp.leave_balance).map(([type, days]) => (
+                                        <div key={type} className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-center min-w-[80px]">
+                                          <p className="text-xs text-muted-foreground capitalize">{type}</p>
+                                          <p className="font-bold text-blue-600 dark:text-blue-400">{days} days</p>
+                                        </div>
+                                      ))}
                                     </div>
                                   </div>
-                                  <div className="grid grid-cols-2 gap-2 text-sm">
-                                    <p><span className="font-semibold">Email:</span> {emp.email}</p>
-                                    <p><span className="font-semibold">Mobile:</span> {emp.mobile || '-'}</p>
-                                    <p><span className="font-semibold">Department:</span> {emp.department || '-'}</p>
-                                    <p><span className="font-semibold">Shift:</span> {emp.shift || '-'}</p>
-                                    <p><span className="font-semibold">Joining Date:</span> {emp.joining_date ? emp.joining_date.split('T')[0] : '-'}</p>
-                                    <p><span className="font-semibold">Salary:</span> ${emp.salary || 0}</p>
-                                    <p><span className="font-semibold">Biometric PIN:</span> <span className="font-mono">{emp.biometric_pin || 'Not assigned'}</span></p>
-                                  </div>
-                                  <div className="border-t border-border pt-3">
-                                    <p className="font-semibold mb-1 text-sm">Bank Details</p>
-                                    <p className="text-sm">Bank Name: {emp.bank_details?.bank_name || '-'}</p>
-                                    <p className="text-sm">Acc Number: {emp.bank_details?.account_number || '-'}</p>
-                                    <p className="text-sm">IFSC: {emp.bank_details?.ifsc_code || '-'}</p>
+                                )}
+
+                                {/* Bank Details */}
+                                <div className="mt-4">
+                                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">Bank Details</p>
+                                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm border border-border rounded-lg p-3">
+                                    <div><span className="text-muted-foreground">Bank: </span><span className="font-medium">{emp.bank_details?.bank_name || '—'}</span></div>
+                                    <div><span className="text-muted-foreground">Account No: </span><span className="font-mono font-medium">{emp.bank_details?.account_number || '—'}</span></div>
+                                    <div><span className="text-muted-foreground">IFSC: </span><span className="font-mono font-medium">{emp.bank_details?.ifsc_code || '—'}</span></div>
+                                    <div><span className="text-muted-foreground">Holder: </span><span className="font-medium">{emp.bank_details?.account_holder || emp.name || '—'}</span></div>
                                   </div>
                                 </div>
                               </DialogContent>
                             )}
                           </Dialog>
+
 
                           {/* Edit Modal */}
                           <Dialog open={editEmployee?.employee_id === emp.employee_id} onOpenChange={o => { if(!o) { setEditEmployee(null); setError(''); } }}>

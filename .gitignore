@@ -163,3 +163,6 @@ credentials.json
 *.pem
 *.key
 .credentials
+
+mongodb_data/
+

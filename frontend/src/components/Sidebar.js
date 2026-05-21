@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -74,6 +74,58 @@ export default function Sidebar({ collapsed, setCollapsed }) {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navRef = useRef(null);
+  const mobileNavRef = useRef(null);
+
+  useEffect(() => {
+    // Restore scroll position for desktop sidebar
+    const savedScrollTop = sessionStorage.getItem('sidebar-scroll-position');
+    if (savedScrollTop && navRef.current) {
+      navRef.current.scrollTop = parseInt(savedScrollTop, 10);
+    }
+
+    const handleScroll = () => {
+      if (navRef.current) {
+        sessionStorage.setItem('sidebar-scroll-position', navRef.current.scrollTop.toString());
+      }
+    };
+
+    const navEl = navRef.current;
+    if (navEl) {
+      navEl.addEventListener('scroll', handleScroll);
+    }
+
+    return () => {
+      if (navEl) {
+        navEl.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Restore scroll position for mobile sidebar
+    const savedScrollTop = sessionStorage.getItem('mobile-sidebar-scroll-position');
+    if (savedScrollTop && mobileNavRef.current) {
+      mobileNavRef.current.scrollTop = parseInt(savedScrollTop, 10);
+    }
+
+    const handleScroll = () => {
+      if (mobileNavRef.current) {
+        sessionStorage.setItem('mobile-sidebar-scroll-position', mobileNavRef.current.scrollTop.toString());
+      }
+    };
+
+    const navEl = mobileNavRef.current;
+    if (navEl) {
+      navEl.addEventListener('scroll', handleScroll);
+    }
+
+    return () => {
+      if (navEl) {
+        navEl.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, []);
 
   const role = user?.role || 'employee';
   const items = navConfig[role] || [];
@@ -98,11 +150,12 @@ export default function Sidebar({ collapsed, setCollapsed }) {
       </div>
 
       {/* Nav Items */}
-      <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
+      <nav ref={prefix === 'mobile-' ? mobileNavRef : navRef} className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
         {items.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
+            preventScrollReset={true}
             onClick={() => setMobileOpen(false)}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${

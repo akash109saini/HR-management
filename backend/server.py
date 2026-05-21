@@ -27,6 +27,7 @@ from routes.demo_routes import router as demo_router
 from routes.biometric_routes import iclock_router, admin_router as biometric_admin_router
 from routes.tax_routes import router as tax_router
 from routes.pf_routes import router as pf_router
+from routes.org_routes import router as org_router
 from seed import seed_database
 
 # Configure logging
@@ -39,10 +40,14 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="HRMS API", version="1.0.0")
 
 # CORS
-frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3001")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_url, "http://localhost:3000"],
+    allow_origins=[
+        frontend_url,
+        "http://localhost:3000",
+        "http://localhost:3001",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,6 +57,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(tenant_router)
 app.include_router(employee_router)
+app.include_router(org_router)
 app.include_router(attendance_router)
 app.include_router(leave_router)
 app.include_router(payroll_router)

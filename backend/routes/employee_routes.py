@@ -34,6 +34,16 @@ async def generate_employee_id(tenant_id: str) -> str:
     return f"EMP-{prefix}-{str(count + 1).zfill(3)}"
 
 
+@router.get("/suggest-id")
+async def suggest_id(request: Request):
+    user = await get_current_user(request)
+    tenant_id = user.get("tenant_id") or request.query_params.get("tenant_id")
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    s_id = await generate_employee_id(tenant_id)
+    return {"suggested_id": s_id}
+
+
 @router.get("")
 async def list_employees(request: Request):
     user = await get_current_user(request)

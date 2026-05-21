@@ -25,6 +25,68 @@ async def _tenant_query(request: Request) -> dict:
     return {"tenant_id": user.get("tenant_id")}, user
 
 
+# ─── Leave Types ──────────────────────────────────────────────────────────────
+class LeaveTypeIn(BaseModel):
+    name: str
+    days_allotted: float
+    description: Optional[str] = ""
+
+
+@router.get("/api/leave-types")
+async def list_leave_types(request: Request):
+    q, user = await _tenant_query(request)
+    tenant_id = user.get("tenant_id")
+    if not tenant_id and user["role"] != "super_admin":
+        raise HTTPException(400, "Tenant ID required")
+    query = {"tenant_id": tenant_id} if tenant_id else {}
+    docs = await db.leave_types.find(query, {"_id": 0}).sort("name", 1).to_list(500)
+    if not docs and tenant_id:
+        defaults = [
+            {"id": "casual", "tenant_id": tenant_id, "name": "Casual Leave", "days_allotted": 12.0, "description": "For personal/casual needs"},
+            {"id": "sick", "tenant_id": tenant_id, "name": "Sick Leave", "days_allotted": 10.0, "description": "For medical needs"},
+            {"id": "earned", "tenant_id": tenant_id, "name": "Earned Leave", "days_allotted": 15.0, "description": "Vacation / annual leave"},
+        ]
+        await db.leave_types.insert_many(defaults)
+        for d in defaults:
+            d.pop("_id", None)
+        return defaults
+    return docs
+
+
+@router.post("/api/leave-types")
+async def create_leave_type(body: LeaveTypeIn, request: Request):
+    _, user = await _tenant_query(request)
+    if user["role"] not in ["super_admin", "hr_manager"]:
+        raise HTTPException(403, "Not authorized")
+    doc = {"id": str(uuid.uuid4()), "tenant_id": user.get("tenant_id"),
+           **body.model_dump(), "created_at": _now()}
+    await db.leave_types.insert_one(doc)
+    return {k: v for k, v in doc.items() if k != "_id"}
+
+
+@router.put("/api/leave-types/{lt_id}")
+async def update_leave_type(lt_id: str, body: LeaveTypeIn, request: Request):
+    _, user = await _tenant_query(request)
+    if user["role"] not in ["super_admin", "hr_manager"]:
+        raise HTTPException(403, "Not authorized")
+    r = await db.leave_types.update_one({"id": lt_id}, {"$set": {**body.model_dump(), "updated_at": _now()}})
+    if r.matched_count == 0:
+        raise HTTPException(404, "Leave type not found")
+    doc = await db.leave_types.find_one({"id": lt_id}, {"_id": 0})
+    return doc
+
+
+@router.delete("/api/leave-types/{lt_id}")
+async def delete_leave_type(lt_id: str, request: Request):
+    _, user = await _tenant_query(request)
+    if user["role"] not in ["super_admin", "hr_manager"]:
+        raise HTTPException(403, "Not authorized")
+    r = await db.leave_types.delete_one({"id": lt_id})
+    if r.deleted_count == 0:
+        raise HTTPException(404, "Leave type not found")
+    return {"message": "Leave type deleted successfully"}
+
+
 # ─── Departments ──────────────────────────────────────────────────────────────
 class DepartmentIn(BaseModel):
     name: str

@@ -223,3 +223,65 @@ async def reset_user_password(employee_id: str, request: Request):
         "new_password": mobile,
         "employee_id": employee_id,
     }
+
+
+# ─── Notifications ────────────────────────────────────────────────────────────
+
+@router.get("/api/notifications")
+async def list_notifications(request: Request):
+    user = await get_current_user(request)
+    user_id = user.get("employee_id") or user.get("email")
+    tenant_id = user.get("tenant_id")
+    
+    if user["role"] == "hr_manager":
+        query = {
+            "tenant_id": tenant_id,
+            "$or": [
+                {"user_id": user_id},
+                {"user_id": None},
+                {"user_id": {"$exists": False}}
+            ]
+        }
+    else:
+        query = {
+            "tenant_id": tenant_id,
+            "user_id": user_id
+        }
+        
+    notifications = await db.notifications.find(query, {"_id": 0}).sort("created_at", -1).limit(50).to_list(100)
+    
+    for n in notifications:
+        n["read"] = n.get("read", n.get("is_read", False))
+        n["is_read"] = n["read"]
+        
+    unread_query = {**query, "$or": [{"is_read": False}, {"read": False}]}
+    unread_count = await db.notifications.count_documents(unread_query)
+    
+    return {
+        "notifications": notifications,
+        "unread_count": unread_count
+    }
+
+
+@router.put("/api/notifications/{notif_id}/read")
+async def mark_notification_read(notif_id: str, request: Request):
+    user = await get_current_user(request)
+    await db.notifications.update_one(
+        {"id": notif_id},
+        {"$set": {"is_read": True, "read": True}}
+    )
+    return {"message": "Marked as read"}
+
+
+@router.post("/api/notifications/read-all")
+async def mark_all_notifications_read(request: Request):
+    user = await get_current_user(request)
+    user_id = user.get("employee_id") or user.get("email")
+    tenant_id = user.get("tenant_id")
+    
+    await db.notifications.update_many(
+        {"tenant_id": tenant_id, "user_id": user_id, "$or": [{"is_read": False}, {"read": False}]},
+        {"$set": {"is_read": True, "read": True}}
+    )
+    return {"message": "All marked as read"}
+

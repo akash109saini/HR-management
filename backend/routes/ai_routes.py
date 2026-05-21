@@ -13,12 +13,20 @@ from typing import Optional, List
 from datetime import datetime, timezone
 from database import db
 from auth_utils import get_current_user
-from emergentintegrations.llm.chat import LlmChat, UserMessage
 import os
 import json
 import uuid
 from dotenv import load_dotenv
 load_dotenv()
+
+# Graceful import of emergentintegrations — not available in all environments
+try:
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    _AI_AVAILABLE = True
+except ImportError:
+    _AI_AVAILABLE = False
+    LlmChat = None
+    UserMessage = None
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -30,8 +38,10 @@ AI_PROVIDER = "openai"
 chat_sessions: dict = {}
 
 
-def get_chat_session(session_id: str, system_message: str) -> LlmChat:
+def get_chat_session(session_id: str, system_message: str):
     """Get or create a chat session."""
+    if not _AI_AVAILABLE:
+        raise HTTPException(status_code=503, detail="AI service not available in this environment")
     if session_id not in chat_sessions:
         chat_sessions[session_id] = LlmChat(
             api_key=LLM_KEY,
@@ -522,9 +532,10 @@ Respond with JSON:
 async def ai_status():
     """Check AI service status."""
     return {
-        "status": "running",
-        "model": AI_MODEL,
-        "provider": AI_PROVIDER,
+        "status": "running" if _AI_AVAILABLE else "unavailable",
+        "ai_available": _AI_AVAILABLE,
+        "model": AI_MODEL if _AI_AVAILABLE else None,
+        "provider": AI_PROVIDER if _AI_AVAILABLE else None,
         "key_configured": bool(LLM_KEY),
         "features": ["chat", "attrition-risk", "sentiment", "parse-resume", "career-path"],
     }
