@@ -23,8 +23,9 @@ jobs:
           REACT_APP_API_URL: ${{ secrets.REACT_APP_BACKEND_URL }}
         run: |
           cd frontend
-          npm install
+          npm install --legacy-peer-deps
           npm run build
+
 
       - name: Deploy to Hostinger via SFTP/SSH
         uses: easingthemes/ssh-deploy@v5.1.0
