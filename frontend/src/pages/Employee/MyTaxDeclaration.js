@@ -97,7 +97,7 @@ export default function MyTaxDeclaration() {
               <CardHeader><CardTitle className="text-base">Regime</CardTitle></CardHeader>
               <CardContent className="max-w-md">
                 <Label>Choose your tax regime</Label>
-                <Select value={decl.regime} onValueChange={(v) => setDecl({ ...decl, regime: v })} disabled={isLocked}>
+                <Select value={decl.regime} onValueChange={(v) => setDecl({ ...decl, regime: v })} disabled={true}>
                   <SelectTrigger data-testid="my-regime-select"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="new">New regime (lower slabs, fewer exemptions)</SelectItem>
@@ -120,14 +120,14 @@ export default function MyTaxDeclaration() {
                       type="number"
                       value={d[key] ?? 0}
                       onChange={(e) => updateField(key, e.target.value)}
-                      disabled={isLocked || decl.regime === 'new'}
+                      disabled={true}
                       data-testid={`field-${key}`}
                     />
                   </div>
                 ))}
                 <div>
                   <Label>HRA city type</Label>
-                  <Select value={d.hra_city || 'non-metro'} onValueChange={(v) => updateField('hra_city', v)} disabled={isLocked || decl.regime === 'new'}>
+                  <Select value={d.hra_city || 'non-metro'} onValueChange={(v) => updateField('hra_city', v)} disabled={true}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="metro">Metro (Delhi, Mumbai, Kolkata, Chennai)</SelectItem>
@@ -138,14 +138,6 @@ export default function MyTaxDeclaration() {
               </CardContent>
             </Card>
 
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => save('draft')} disabled={saving || isLocked} data-testid="save-draft-btn">
-                <Save size={14} className="mr-1" /> {saving ? 'Saving\u2026' : 'Save draft'}
-              </Button>
-              <Button onClick={() => save('submitted')} disabled={submitting || isLocked} data-testid="submit-decl-btn">
-                <Send size={14} className="mr-1" /> {submitting ? 'Submitting\u2026' : 'Submit to HR'}
-              </Button>
-            </div>
           </TabsContent>
 
           <TabsContent value="compare">

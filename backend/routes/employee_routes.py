@@ -14,16 +14,36 @@ class EmployeeCreate(BaseModel):
     mobile: str
     department: str = ""
     position: str = ""
+    designation: Optional[str] = ""
     salary: float = 0
     role: str = "employee"
+    shift: Optional[str] = ""
+    joining_date: Optional[str] = ""
+    biometric_pin: Optional[str] = ""
+    bank_name: Optional[str] = ""
+    account_number: Optional[str] = ""
+    ifsc_code: Optional[str] = ""
+    account_holder: Optional[str] = ""
+    leave_balance: Optional[dict] = None
 
 
 class EmployeeUpdate(BaseModel):
     name: Optional[str] = None
+    email: Optional[str] = None
+    mobile: Optional[str] = None
     department: Optional[str] = None
     position: Optional[str] = None
+    designation: Optional[str] = None
     salary: Optional[float] = None
-    mobile: Optional[str] = None
+    role: Optional[str] = None
+    shift: Optional[str] = None
+    joining_date: Optional[str] = None
+    biometric_pin: Optional[str] = None
+    bank_name: Optional[str] = None
+    account_number: Optional[str] = None
+    ifsc_code: Optional[str] = None
+    account_holder: Optional[str] = None
+    leave_balance: Optional[dict] = None
     status: Optional[str] = None
 
 
@@ -81,6 +101,9 @@ async def create_employee(req: EmployeeCreate, request: Request):
     employee_id = await generate_employee_id(tenant_id)
     password_hash = hash_password(req.mobile)
 
+    pos = req.position or req.designation or ""
+    desig = req.designation or req.position or ""
+
     new_user = {
         "email": req.email.lower(),
         "name": req.name,
@@ -90,11 +113,25 @@ async def create_employee(req: EmployeeCreate, request: Request):
         "role": req.role if req.role in ["employee", "hr_manager"] else "employee",
         "tenant_id": tenant_id,
         "department": req.department,
-        "position": req.position,
+        "position": pos,
+        "designation": desig,
         "salary": req.salary,
         "status": "active",
         "first_login": True,
-        "leave_balance": {"casual": 12, "sick": 10, "earned": 15},
+        "shift": req.shift or "",
+        "joining_date": req.joining_date or "",
+        "biometric_pin": req.biometric_pin or "",
+        "bank_name": req.bank_name or "",
+        "account_number": req.account_number or "",
+        "ifsc_code": req.ifsc_code or "",
+        "account_holder": req.account_holder or "",
+        "bank_details": {
+            "bank_name": req.bank_name or "",
+            "account_number": req.account_number or "",
+            "ifsc_code": req.ifsc_code or "",
+            "account_holder": req.account_holder or ""
+        },
+        "leave_balance": req.leave_balance if req.leave_balance is not None else {"casual": 12, "sick": 10, "earned": 15},
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -126,7 +163,32 @@ async def update_employee(employee_id: str, req: EmployeeUpdate, request: Reques
     if user["role"] not in ["super_admin", "hr_manager"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    updates = {}
+    model_dict = req.model_dump(exclude_unset=True)
+
+    for k, v in model_dict.items():
+        if v is not None:
+            updates[k] = v
+
+    if "designation" in updates or "position" in updates:
+        val = updates.get("designation") or updates.get("position")
+        if val:
+            updates["designation"] = val
+            updates["position"] = val
+
+    bank_fields = ["bank_name", "account_number", "ifsc_code", "account_holder"]
+    has_bank_update = any(field in updates for field in bank_fields)
+    if has_bank_update:
+        existing = await db.users.find_one({"employee_id": employee_id})
+        existing_bank = (existing or {}).get("bank_details") or {}
+        bank_details = {
+            "bank_name": updates.get("bank_name", existing_bank.get("bank_name", "")),
+            "account_number": updates.get("account_number", existing_bank.get("account_number", "")),
+            "ifsc_code": updates.get("ifsc_code", existing_bank.get("ifsc_code", "")),
+            "account_holder": updates.get("account_holder", existing_bank.get("account_holder", ""))
+        }
+        updates["bank_details"] = bank_details
+
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     result = await db.users.update_one({"employee_id": employee_id}, {"$set": updates})
     if result.matched_count == 0:
