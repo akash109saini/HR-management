@@ -11,6 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Plus, Search, UserPlus, FileDown, Edit, Eye, Power } from 'lucide-react';
 
+const getLeaveKey = (name) => {
+  if (!name) return '';
+  return name.toLowerCase().replace(/\s*leave\s*/g, '').trim();
+};
+
 export default function EmployeeManagement() {
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -54,7 +59,7 @@ export default function EmployeeManagement() {
       
       // Initialize default balances in form
       const defaults = {};
-      typesRes.data.forEach(t => defaults[t.name.toLowerCase()] = t.days_allotted);
+      typesRes.data.forEach(t => defaults[getLeaveKey(t.name)] = t.days_allotted);
       setForm(prev => ({ ...prev, leave_balance: defaults }));
     } catch { /* ignore */ }
     setLoading(false);
@@ -131,7 +136,7 @@ export default function EmployeeManagement() {
         const normalized = {};
         if (emp.leave_balance) {
           Object.entries(emp.leave_balance).forEach(([k, v]) => {
-            normalized[k.toLowerCase().trim()] = v;
+            normalized[getLeaveKey(k)] = v;
           });
         }
         return normalized;
@@ -222,20 +227,23 @@ export default function EmployeeManagement() {
       <div className="border-t border-border pt-4">
         <h4 className="text-sm font-semibold mb-3">{isEdit ? 'Manage' : 'Initial'} Leave Balances</h4>
         <div className="grid grid-cols-2 gap-4">
-          {leaveTypes.map(lt => (
-            <div key={lt.id} className="space-y-2">
-              <Label>{lt.name}</Label>
-              <Input 
-                type="number" 
-                step="0.5"
-                value={form.leave_balance[lt.name.toLowerCase()] || 0} 
-                onChange={e => setForm({
-                  ...form, 
-                  leave_balance: { ...form.leave_balance, [lt.name.toLowerCase()]: parseFloat(e.target.value) || 0 }
-                })} 
-              />
-            </div>
-          ))}
+          {leaveTypes.map(lt => {
+            const key = getLeaveKey(lt.name);
+            return (
+              <div key={lt.id} className="space-y-2">
+                <Label>{lt.name}</Label>
+                <Input 
+                  type="number" 
+                  step="0.5"
+                  value={form.leave_balance[key] || 0} 
+                  onChange={e => setForm({
+                    ...form, 
+                    leave_balance: { ...form.leave_balance, [key]: parseFloat(e.target.value) || 0 }
+                  })} 
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
 

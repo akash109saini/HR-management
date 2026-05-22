@@ -131,7 +131,7 @@ async def create_employee(req: EmployeeCreate, request: Request):
             "ifsc_code": req.ifsc_code or "",
             "account_holder": req.account_holder or ""
         },
-        "leave_balance": req.leave_balance if req.leave_balance is not None else {"casual": 12, "sick": 10, "earned": 15},
+        "leave_balance": {k.lower().replace("leave", "").strip(): v for k, v in (req.leave_balance if req.leave_balance is not None else {"casual": 12, "sick": 10, "earned": 15}).items()},
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -188,6 +188,9 @@ async def update_employee(employee_id: str, req: EmployeeUpdate, request: Reques
             "account_holder": updates.get("account_holder", existing_bank.get("account_holder", ""))
         }
         updates["bank_details"] = bank_details
+
+    if "leave_balance" in updates and updates["leave_balance"] is not None:
+        updates["leave_balance"] = {k.lower().replace("leave", "").strip(): v for k, v in updates["leave_balance"].items()}
 
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     result = await db.users.update_one({"employee_id": employee_id}, {"$set": updates})
