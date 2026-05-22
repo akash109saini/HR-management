@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: hr-management-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    rootDir: backend
+    envVars:
+      - key: MONGO_URL
+        value: mongodb+srv://creativecloudakash_db_user:OKIlaoFRwNaRdEyO@hr-sai.u2bpdap.mongodb.net/hrms_db?retryWrites=true&w=majority&appName=HR-sai
+      - key: DB_NAME
+        value: hrms_db
+      - key: JWT_SECRET
+        value: supersecretjwtkeyforhrms2026
+      - key: FRONTEND_URL
+        value: https://hr.sairesidencyhostels.com
