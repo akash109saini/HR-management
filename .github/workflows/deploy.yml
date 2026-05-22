@@ -51,5 +51,5 @@ jobs:
           REMOTE_HOST: ${{ secrets.HOSTINGER_HOST }}
           REMOTE_USER: ${{ secrets.HOSTINGER_USER }}
           REMOTE_PORT: ${{ secrets.HOSTINGER_PORT }}
-          TARGET: "domains/hr.sairesidencyhostels.com/public_html/"
+          TARGET: "domains/sairesidencyhostels.com/public_html/hr/"
           EXCLUDE: "/.htaccess"
