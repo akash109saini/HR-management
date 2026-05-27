@@ -42,31 +42,40 @@ export default function MyPunchLog() {
   const [punches, setPunches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
 
-  useEffect(() => {
+  const fetchPunches = () => {
     api.get('/attendance/punches')
       .then(r => setPunches(r.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchPunches();
+    // Auto-refresh every 30 seconds so new device punches appear immediately
+    const interval = setInterval(fetchPunches, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const filtered = punches.filter(p => {
     const q = search.toLowerCase();
-    return (
-      !q ||
+    const matchSearch = !q ||
       p.device_sn?.toLowerCase().includes(q) ||
       p.device_name?.toLowerCase().includes(q) ||
       p.timestamp?.toLowerCase().includes(q) ||
       p.verify_mode?.toLowerCase().includes(q) ||
-      p.status?.toLowerCase().includes(q)
-    );
+      p.status?.toLowerCase().includes(q);
+    const matchDate = !dateFilter || (p.timestamp && p.timestamp.startsWith(dateFilter));
+    return matchSearch && matchDate;
   });
 
-  // Summary stats
+  // Summary stats — use ALL punches (not filtered) for cards
   const totalIn = punches.filter(p => p.status === 'check_in').length;
   const totalOut = punches.filter(p => p.status === 'check_out').length;
   const matched = punches.filter(p => p.matched).length;
   const devices = [...new Set(punches.map(p => p.device_sn).filter(Boolean))];
+
 
   return (
     <DashboardLayout>
@@ -140,16 +149,35 @@ export default function MyPunchLog() {
         {/* Table */}
         <Card className="border border-border">
           <CardHeader className="pb-3 border-b border-border">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <CardTitle className="text-base font-semibold">Punch History</CardTitle>
-              <div className="relative w-full sm:w-64">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search punches..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="pl-9 h-8 text-sm"
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base font-semibold">Punch History</CardTitle>
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                  {filtered.length} of {punches.length}
+                </span>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={e => setDateFilter(e.target.value)}
+                  className="h-8 text-sm border border-input rounded-md px-3 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
+                <div className="relative w-full sm:w-52">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search punches..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="pl-9 h-8 text-sm"
+                  />
+                </div>
+                {dateFilter && (
+                  <button
+                    onClick={() => setDateFilter('')}
+                    className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md"
+                  >Clear date</button>
+                )}
               </div>
             </div>
           </CardHeader>
