@@ -227,7 +227,8 @@ async def receive_punches(request: Request):
                     "$set": {
                         field: log_time,
                         "source": "biometric",
-                        "device_sn": device_sn
+                        "device_sn": device_sn,
+                        "status": "present"
                     }
                 },
                 upsert=True

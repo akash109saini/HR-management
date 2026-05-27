@@ -218,7 +218,7 @@ async def iclock_push(
                 await db.attendance.update_one(
                     {"user_id": employee["employee_id"], "date": date_str},
                     {"$setOnInsert": base_on_insert,
-                     "$set": {field: row["timestamp"], "source": "biometric", "device_sn": SN}},
+                     "$set": {field: row["timestamp"], "source": "biometric", "device_sn": SN, "status": "present"}},
                     upsert=True,
                 )
 
