@@ -30,22 +30,49 @@ async def _resolve_employee(user_pin: str, tenant_id: Optional[str]) -> Optional
     return await db.users.find_one(query, {"_id": 0, "password_hash": 0})
 
 @router.post("/push", dependencies=[Depends(verify_token)])
-async def receive_punches(payload: List[Dict[str, Any]]):
+async def receive_punches(request: Request):
     """
-    Receive real-time push logs from Realtime T304F+ device.
-    Supports list of punch logs in standard JSON push format.
+    Receive real-time push logs from Realtime T304F+ device / Api_Realtime.com.
+    Supports either a single dictionary or list of dictionaries.
     """
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    if isinstance(payload, dict):
+        payload = [payload]
+    elif not isinstance(payload, list):
+        raise HTTPException(status_code=400, detail="Payload must be a JSON object or JSON list")
+
     logger.info(f"Received realtime biometric push: {len(payload)} records")
     now_iso = datetime.now(timezone.utc).isoformat()
     inserted_count = 0
 
     for item in payload:
-        # Flexible key extraction supporting multiple casing schemes
-        device_sn = item.get("DeviceID") or item.get("device_id") or item.get("SN")
-        user_pin = str(item.get("UserID") or item.get("user_id") or "")
-        log_time = item.get("LogTime") or item.get("time") or item.get("timestamp")
+        # Flexible key extraction supporting Api_Realtime.com mappings
+        device_sn = (
+            item.get("DeviceSrno") or 
+            item.get("DeviceNo") or 
+            item.get("DeviceID") or 
+            item.get("device_id") or 
+            item.get("SN")
+        )
+        user_pin = str(
+            item.get("BiometricID") or 
+            item.get("UserID") or 
+            item.get("user_id") or 
+            item.get("pin") or 
+            ""
+        ).strip()
+        log_time = (
+            item.get("LogDateTime") or 
+            item.get("LogTime") or 
+            item.get("time") or 
+            item.get("timestamp")
+        )
         verify_mode = item.get("VerifyMode") or item.get("mode") or "unknown"
-        status_raw = item.get("Status") or item.get("status") or "check_in"
+        status_raw = item.get("Direction") or item.get("Status") or item.get("status") or "check_in"
 
         if not device_sn or not user_pin or not log_time:
             logger.warning(f"Skipping malformed record: {item}")
