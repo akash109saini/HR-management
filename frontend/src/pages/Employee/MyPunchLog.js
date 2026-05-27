@@ -215,19 +215,18 @@ export default function MyPunchLog() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>#</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Time</TableHead>
+                    <TableHead>Punch Date &amp; Time</TableHead>
                     <TableHead>Direction</TableHead>
                     <TableHead>Verify Mode</TableHead>
                     <TableHead>Device</TableHead>
-                    <TableHead>Matched</TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead>Received At</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-12">
+                      <TableCell colSpan={7} className="text-center py-12">
                         <div className="flex flex-col items-center gap-3">
                           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                           <p className="text-sm text-muted-foreground">Loading punch records…</p>
@@ -236,7 +235,7 @@ export default function MyPunchLog() {
                     </TableRow>
                   ) : filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-16">
+                      <TableCell colSpan={7} className="text-center py-16">
                         <div className="flex flex-col items-center gap-3 text-muted-foreground">
                           <WifiOff size={36} className="opacity-30" />
                           <p className="text-sm font-medium">No punch records found</p>
@@ -244,52 +243,63 @@ export default function MyPunchLog() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : filtered.map((p, i) => (
-                    <TableRow key={p.punch_id || i} className="hover:bg-muted/30 transition-colors">
-                      <TableCell className="text-muted-foreground text-xs font-mono">{i + 1}</TableCell>
-                      <TableCell className="font-medium text-sm">{formatDate(p.timestamp)}</TableCell>
-                      <TableCell className="font-mono text-sm tabular-nums">{formatTime(p.timestamp)}</TableCell>
-                      <TableCell>
-                        {p.status === 'check_in' ? (
-                          <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 gap-1 hover:bg-emerald-100">
-                            <LogIn size={11} /> Clock In
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800 gap-1 hover:bg-amber-100">
-                            <LogOut size={11} /> Clock Out
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm capitalize">
-                        {getVerifyIcon(p.verify_mode)}
-                        {p.verify_mode && p.verify_mode !== 'unknown' ? p.verify_mode : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-mono text-xs text-primary">{p.device_sn || '—'}</span>
-                          {p.device_name && (
-                            <span className="text-xs text-muted-foreground truncate max-w-[140px]">{p.device_name}</span>
+                  ) : filtered.map((p, i) => {
+                    // Guard: if received_at is before the punch timestamp, don't show it
+                    const punchMs = p.timestamp ? new Date(p.timestamp.replace(' ', 'T') + 'Z').getTime() : 0;
+                    const receivedMs = p.received_at ? new Date(p.received_at).getTime() : 0;
+                    const showReceived = receivedMs >= punchMs;
+
+                    return (
+                      <TableRow key={p.punch_id || i} className="hover:bg-muted/30 transition-colors">
+                        <TableCell className="text-muted-foreground text-xs font-mono">{i + 1}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm">{formatDate(p.timestamp)}</span>
+                            <span className="font-mono text-sm tabular-nums text-primary">{formatTime(p.timestamp)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {p.status === 'check_in' ? (
+                            <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 gap-1 hover:bg-emerald-100">
+                              <LogIn size={11} /> Clock In
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800 gap-1 hover:bg-amber-100">
+                              <LogOut size={11} /> Clock Out
+                            </Badge>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {p.matched ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            Matched
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
-                            <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
-                            Unmatched
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-mono">
-                        {formatReceived(p.received_at)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell className="text-sm capitalize">
+                          {getVerifyIcon(p.verify_mode)}
+                          {p.verify_mode && p.verify_mode !== 'unknown' ? p.verify_mode : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-mono text-xs text-primary">{p.device_sn || '—'}</span>
+                            {p.device_name && (
+                              <span className="text-xs text-muted-foreground truncate max-w-[140px]">{p.device_name}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {p.source === 'realtime_push' ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                              Device
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+                              {p.source || 'manual'}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground font-mono">
+                          {showReceived ? formatReceived(p.received_at) : '—'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
