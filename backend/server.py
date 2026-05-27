@@ -25,6 +25,7 @@ from routes.whatsapp_routes import router as whatsapp_router
 from routes.blockchain_routes import router as blockchain_router
 from routes.demo_routes import router as demo_router
 from routes.biometric_routes import iclock_router, admin_router as biometric_admin_router
+from routes.realtime_biometric import router as realtime_biometric_router
 from routes.tax_routes import router as tax_router
 from routes.pf_routes import router as pf_router
 from routes.org_routes import router as org_router
@@ -73,6 +74,7 @@ app.include_router(blockchain_router)
 app.include_router(demo_router)
 app.include_router(iclock_router)
 app.include_router(biometric_admin_router)
+app.include_router(realtime_biometric_router)
 app.include_router(tax_router)
 app.include_router(pf_router)
 
