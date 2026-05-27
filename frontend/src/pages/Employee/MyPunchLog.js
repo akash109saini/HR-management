@@ -22,20 +22,48 @@ function getVerifyIcon(mode) {
   return <Fingerprint size={14} className="inline mr-1 text-muted-foreground" />;
 }
 
+// Device sends punch time in LOCAL time (IST). It is stored as "YYYY-MM-DD HH:MM:SS".
+// We extract the time part directly — no timezone conversion needed.
+function parseDeviceTimestamp(ts) {
+  if (!ts) return null;
+  // Normalize: "2026-05-27 22:25:00" or "2026-05-27T22:25:00"
+  const normalized = ts.replace('T', ' ').split('+')[0].split('Z')[0].trim();
+  const [datePart, timePart] = normalized.split(' ');
+  return { datePart, timePart };
+}
+
 function formatTime(ts) {
   if (!ts) return '—';
-  try {
-    const d = new Date(ts);
-    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  } catch { return ts; }
+  const parsed = parseDeviceTimestamp(ts);
+  if (!parsed?.timePart) return '—';
+  // Convert HH:MM:SS to 12-hour format
+  const [hStr, mStr, sStr] = parsed.timePart.split(':');
+  const h = parseInt(hStr, 10);
+  const ampm = h >= 12 ? 'pm' : 'am';
+  const h12 = h % 12 || 12;
+  return `${h12}:${mStr}:${sStr || '00'} ${ampm}`;
 }
 
 function formatDate(ts) {
   if (!ts) return '—';
+  const parsed = parseDeviceTimestamp(ts);
+  if (!parsed?.datePart) return '—';
+  try {
+    // Parse date only (no time, no timezone shift)
+    const [y, m, d] = parsed.datePart.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d); // local midnight — no UTC shift
+    return dateObj.toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: '2-digit' });
+  } catch { return parsed.datePart; }
+}
+
+// received_at is stored as ISO UTC string ("2026-05-27T17:05:06+00:00" or ".123Z")
+// new Date() correctly converts UTC → local (IST)
+function formatReceived(ts) {
+  if (!ts) return '—';
   try {
     const d = new Date(ts);
-    return d.toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: '2-digit' });
-  } catch { return ts?.toString()?.slice(0, 10) || '—'; }
+    return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
+  } catch { return '—'; }
 }
 
 export default function MyPunchLog() {
@@ -258,7 +286,7 @@ export default function MyPunchLog() {
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground font-mono">
-                        {p.received_at ? new Date(p.received_at).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }) : '—'}
+                        {formatReceived(p.received_at)}
                       </TableCell>
                     </TableRow>
                   ))}
