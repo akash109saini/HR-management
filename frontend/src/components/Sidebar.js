@@ -56,6 +56,7 @@ const navConfig = {
   employee: [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Attendance', path: '/my-attendance', icon: Clock },
+    { label: 'Punch Log', path: '/my-punch-log', icon: Fingerprint },
     { label: 'Leaves', path: '/my-leaves', icon: CalendarDays },
     { label: 'Team Calendar', path: '/team-calendar', icon: CalendarDays },
     { label: 'Payslips', path: '/my-payslips', icon: DollarSign },

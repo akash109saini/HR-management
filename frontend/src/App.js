@@ -47,6 +47,7 @@ import MyPayslips from './pages/Employee/MyPayslips';
 import MyTaxDeclaration from './pages/Employee/MyTaxDeclaration';
 import MyPFStatement from './pages/Employee/MyPFStatement';
 import Announcements from './pages/Employee/Announcements';
+import MyPunchLog from './pages/Employee/MyPunchLog';
 import ProfilePage from './pages/ProfilePage';
 
 function ProtectedRoute({ children }) {
@@ -143,6 +144,7 @@ function AppRoutes() {
       <Route path="/my-payslips" element={<ProtectedRoute><MyPayslips /></ProtectedRoute>} />
       <Route path="/my-tax" element={<ProtectedRoute><MyTaxDeclaration /></ProtectedRoute>} />
       <Route path="/my-pf" element={<ProtectedRoute><MyPFStatement /></ProtectedRoute>} />
+      <Route path="/my-punch-log" element={<ProtectedRoute><MyPunchLog /></ProtectedRoute>} />
 
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -195,3 +195,39 @@ async def review_punch_correction(correction_id: str, req: PunchCorrectionAction
 
     updated = await db.punch_corrections.find_one({"id": correction_id}, {"_id": 0})
     return updated
+
+
+@router.get("/punches")
+async def list_my_punches(request: Request):
+    """Return all biometric punch logs for the current employee (or filtered by employee_id for HR)."""
+    user = await get_current_user(request)
+
+    query = {}
+    if user["role"] == "employee":
+        emp_id = user.get("employee_id")
+        bio_pin = user.get("biometric_pin", "")
+        or_conditions = [{"employee_id": emp_id}]
+        if bio_pin:
+            or_conditions.append({"user_pin": bio_pin})
+            if bio_pin.isdigit():
+                stripped = bio_pin.lstrip("0") or "0"
+                if stripped != bio_pin:
+                    or_conditions.append({"user_pin": stripped})
+        query["$or"] = or_conditions
+
+    elif user["role"] in ["hr_manager", "super_admin"]:
+        query["tenant_id"] = user.get("tenant_id")
+        emp_id_param = request.query_params.get("employee_id")
+        if emp_id_param:
+            query["employee_id"] = emp_id_param
+        # super_admin can pass tenant_id override
+        if user["role"] == "super_admin":
+            tid = request.query_params.get("tenant_id")
+            if tid:
+                query["tenant_id"] = tid
+
+    else:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    punches = await db.biometric_punches.find(query, {"_id": 0}).sort("timestamp", -1).to_list(500)
+    return punches
