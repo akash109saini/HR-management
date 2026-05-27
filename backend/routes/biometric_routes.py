@@ -43,13 +43,24 @@ async def _find_device(sn: str) -> Optional[dict]:
 
 async def _resolve_employee(user_pin: str, tenant_id: Optional[str]) -> Optional[dict]:
     """Map device user PIN → HRMS user. We try multiple fields."""
-    query: Dict[str, Any] = {
-        "$or": [
-            {"biometric_pin": user_pin},
-            {"biometric_pin": str(user_pin)},
-            {"employee_id": user_pin},
-        ]
-    }
+    normalized_pin = user_pin.lstrip("0") if user_pin.isdigit() else user_pin
+    if not normalized_pin:
+        normalized_pin = "0"
+
+    or_conditions = [
+        {"biometric_pin": user_pin},
+        {"biometric_pin": str(user_pin)},
+        {"employee_id": user_pin},
+    ]
+
+    if normalized_pin != user_pin:
+        or_conditions.extend([
+            {"biometric_pin": normalized_pin},
+            {"biometric_pin": str(normalized_pin)},
+            {"employee_id": normalized_pin},
+        ])
+
+    query: Dict[str, Any] = {"$or": or_conditions}
     if tenant_id:
         query["tenant_id"] = tenant_id
     return await db.users.find_one(query, {"_id": 0, "password_hash": 0})

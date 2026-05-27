@@ -13,50 +13,45 @@ router = APIRouter(prefix="/api/realtime-biometric", tags=["realtime-biometric"]
 # Fetch credentials token from environment (default to secure suggested credential)
 BIOMETRIC_AUTH_TOKEN = os.environ.get("BIOMETRIC_AUTH_TOKEN", "realtime_t304f_auth_token_2026")
 
-async def verify_token(
-    x_biometric_token: Optional[str] = Header(None),
-    authorization: Optional[str] = Header(None)
-):
-    token = None
-    if x_biometric_token:
-        token = x_biometric_token
-    elif authorization and authorization.lower().startswith("bearer "):
-        token = authorization[7:].strip()
-        
-    allowed_tokens = {
-        BIOMETRIC_AUTH_TOKEN,
-        "realtime_t304f_auth_token_2026",
-        "time_t304f_auth_token_2026"
-    }
-    
-    if not token or token not in allowed_tokens:
-        logger.warning(f"Unauthorized access attempt with token: {token}")
-        raise HTTPException(status_code=401, detail="Invalid or missing biometric auth token")
-
 async def _resolve_employee(user_pin: str, tenant_id: Optional[str]) -> Optional[dict]:
-    query: Dict[str, Any] = {
-        "$or": [
-            {"biometric_pin": user_pin},
-            {"biometric_pin": str(user_pin)},
-            {"employee_id": user_pin},
-        ]
-    }
+    normalized_pin = user_pin.lstrip("0") if user_pin.isdigit() else user_pin
+    if not normalized_pin:
+        normalized_pin = "0"
+
+    or_conditions = [
+        {"biometric_pin": user_pin},
+        {"biometric_pin": str(user_pin)},
+        {"employee_id": user_pin},
+    ]
+
+    if normalized_pin != user_pin:
+        or_conditions.extend([
+            {"biometric_pin": normalized_pin},
+            {"biometric_pin": str(normalized_pin)},
+            {"employee_id": normalized_pin},
+        ])
+
+    query: Dict[str, Any] = {"$or": or_conditions}
     if tenant_id:
         query["tenant_id"] = tenant_id
     return await db.users.find_one(query, {"_id": 0, "password_hash": 0})
 
-@router.post("/push", dependencies=[Depends(verify_token)])
+@router.post("/push")
 async def receive_punches(request: Request):
     """
     Receive real-time push logs from Realtime T304F+ device / Api_Realtime.com.
     Supports either a single dictionary, list of dictionaries, or query parameters.
     """
+    # 1. Retrieve raw body and request details
+    headers_dict = dict(request.headers)
+    query_dict = dict(request.query_params)
+    body_str = ""
     payload = []
     
-    # Try parsing JSON body first
     try:
-        body = await request.body()
-        if body:
+        body_bytes = await request.body()
+        body_str = body_bytes.decode("utf-8", errors="ignore")
+        if body_str:
             parsed = await request.json()
             if isinstance(parsed, dict):
                 payload = [parsed]
@@ -67,11 +62,72 @@ async def receive_punches(request: Request):
 
     # Fallback to query params
     if not payload and request.query_params:
-        query_dict = dict(request.query_params)
         if query_dict:
             payload = [query_dict]
 
-    logger.info(f"Received realtime biometric push: {len(payload)} records")
+    # 2. Extract Token from headers, query params, or body
+    token = None
+    # Check headers
+    if "x-biometric-token" in headers_dict:
+        token = headers_dict["x-biometric-token"]
+    elif "authorization" in headers_dict:
+        auth_header = headers_dict["authorization"]
+        if auth_header.lower().startswith("bearer "):
+            token = auth_header[7:].strip()
+        else:
+            token = auth_header.strip()
+
+    # Check query params if not found
+    if not token:
+        for key in ["token", "Token", "authorization", "Authorization", "x-biometric-token", "X-Biometric-Token", "access_token", "auth_token"]:
+            val = query_dict.get(key)
+            if val:
+                if val.lower().startswith("bearer "):
+                    token = val[7:].strip()
+                else:
+                    token = val.strip()
+                break
+
+    # Check payload if not found
+    if not token and len(payload) == 1:
+        item = payload[0]
+        for key in ["token", "Token", "authorization", "Authorization", "x-biometric-token", "X-Biometric-Token", "access_token", "auth_token"]:
+            val = item.get(key)
+            if val:
+                if str(val).lower().startswith("bearer "):
+                    token = str(val)[7:].strip()
+                else:
+                    token = str(val).strip()
+                break
+
+    # Save trace log for troubleshooting
+    await db.biometric_raw_pushes.insert_one({
+        "received_at": datetime.now(timezone.utc).isoformat(),
+        "headers": headers_dict,
+        "query_params": query_dict,
+        "body_preview": body_str[:4000],
+        "extracted_token": token,
+        "authenticated": False # Will set to True below if successful
+    })
+
+    # Validate token
+    allowed_tokens = {
+        BIOMETRIC_AUTH_TOKEN,
+        "realtime_t304f_auth_token_2026",
+        "time_t304f_auth_token_2026"
+    }
+
+    if not token or token not in allowed_tokens:
+        logger.warning(f"Unauthorized access attempt with token: {token}")
+        raise HTTPException(status_code=401, detail="Invalid or missing biometric auth token")
+
+    # Mark trace as authenticated
+    await db.biometric_raw_pushes.update_many(
+        {"extracted_token": token, "authenticated": False},
+        {"$set": {"authenticated": True}}
+    )
+
+    logger.info(f"Received authenticated realtime biometric push: {len(payload)} records")
     now_iso = datetime.now(timezone.utc).isoformat()
     inserted_count = 0
 

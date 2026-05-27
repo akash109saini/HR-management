@@ -85,7 +85,7 @@ export default function EmployeeManagement() {
 
       const { data } = await api.post('/employees', payload);
       setSuccess(`Employee created! ID: ${data.employee_id}. Initial password: ${data.initial_password}`);
-      setForm({ name: '', email: '', mobile: '', department: '', designation: '', salary: 0, shift: '', joining_date: '', biometric_pin: '', bank_name: '', account_number: '', ifsc_code: '', account_holder: '' });
+      setForm({ name: '', email: '', mobile: '', department: '', designation: '', salary: 0, shift: '', joining_date: '', biometric_pin: '', bank_name: '', account_number: '', ifsc_code: '', account_holder: '', leave_balance: {} });
       fetchEmployees();
     } catch (err) {
       setError(formatApiError(err.response?.data?.detail));
@@ -235,10 +235,10 @@ export default function EmployeeManagement() {
                 <Input 
                   type="number" 
                   step="0.5"
-                  value={form.leave_balance[key] || 0} 
+                  value={(form.leave_balance && form.leave_balance[key]) ?? 0} 
                   onChange={e => setForm({
                     ...form, 
-                    leave_balance: { ...form.leave_balance, [key]: parseFloat(e.target.value) || 0 }
+                    leave_balance: { ...(form.leave_balance || {}), [key]: parseFloat(e.target.value) || 0 }
                   })} 
                 />
               </div>
