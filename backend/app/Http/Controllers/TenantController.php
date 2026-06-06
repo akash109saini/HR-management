@@ -36,10 +36,19 @@ class TenantController extends Controller
         ]);
 
         $uuid = (string) Str::uuid();
-        $dbName = 'hr_tenant_' . str_replace('-', '_', $uuid);
+        $dbPrefix = '';
+        if (env('APP_ENV') === 'production' && str_contains(env('DB_USERNAME'), '_')) {
+            $dbPrefix = explode('_', env('DB_USERNAME'))[0] . '_';
+        }
+        $dbName = $dbPrefix . 'hr_tenant_' . str_replace('-', '_', $uuid);
 
         // 1. Create Physical Database
-        \Illuminate\Support\Facades\DB::connection('landlord')->statement("CREATE DATABASE IF NOT EXISTS `{$dbName}`;");
+        if (env('APP_ENV') === 'production') {
+            shell_exec("uapi Mysql create_database name=" . escapeshellarg($dbName));
+            shell_exec("uapi Mysql set_privileges_on_database user=" . escapeshellarg(env('DB_USERNAME')) . " database=" . escapeshellarg($dbName) . " privileges=ALL");
+        } else {
+            \Illuminate\Support\Facades\DB::connection('landlord')->statement("CREATE DATABASE IF NOT EXISTS `{$dbName}`;");
+        }
 
         // 2. Register Tenant in Landlord DB
         $tenant = Tenant::create([

@@ -29,6 +29,7 @@ const navConfig = {
     { label: 'Shifts', path: '/shifts', icon: Timer },
     { label: 'Salary Slabs', path: '/salary-slabs', icon: Layers },
     { label: 'Attendance', path: '/attendance', icon: Clock },
+    { label: 'Punch Logs', path: '/punch-logs', icon: Fingerprint },
     { label: 'Leave Mgmt', path: '/leave-management', icon: CalendarDays },
     { label: 'Leave Settings', path: '/leave-settings', icon: Settings2 },
     { label: 'Holidays', path: '/holidays', icon: Calendar },
@@ -129,7 +130,57 @@ export default function Sidebar({ collapsed, setCollapsed }) {
   }, []);
 
   const role = user?.role || 'employee';
-  const items = navConfig[role] || [];
+  let items = [];
+
+  if (role === 'super_admin' || role === 'hr_manager' || role === 'employee') {
+    items = navConfig[role] || [];
+  } else {
+    // Custom role: Start with employee nav items
+    const userPermissions = user?.permissions || [];
+    const baseItems = [...navConfig.employee];
+
+    // Find HR manager items that the user has permission for
+    const permissionMapping = {
+      '/employees': 'employees',
+      '/departments': 'departments',
+      '/designations': 'designations',
+      '/shifts': 'shifts',
+      '/salary-slabs': 'salary_slabs',
+      '/attendance': 'attendance',
+      '/punch-logs': 'attendance',
+      '/leave-management': 'leaves',
+      '/leave-settings': 'leaves',
+      '/holidays': 'holidays',
+      '/payroll': 'payroll',
+      '/tax-management': 'payroll',
+      '/pf-management': 'payroll',
+      '/advance-salary': 'payroll',
+      '/recruitment': 'recruitment',
+      '/performance': 'performance',
+      '/onboarding': 'onboarding',
+      '/terminations': 'terminations',
+      '/resignations': 'resignations',
+      '/roles-users': 'super_admin',
+      '/announcements': 'announcements',
+      '/biometric-devices': 'attendance',
+    };
+
+    const basePaths = new Set(baseItems.map(item => item.path));
+    const adminItems = navConfig.hr_manager.filter(item => {
+      const reqPerm = permissionMapping[item.path];
+      return reqPerm && userPermissions.includes(reqPerm) && !basePaths.has(item.path);
+    });
+
+    // Combine and place Profile at the end
+    const profileIdx = baseItems.findIndex(item => item.path === '/profile');
+    if (profileIdx !== -1) {
+      baseItems.splice(profileIdx, 0, ...adminItems);
+    } else {
+      baseItems.push(...adminItems);
+    }
+
+    items = baseItems;
+  }
 
   const handleLogout = async () => {
     await logout();

@@ -21,6 +21,7 @@ import TeamCalendarPage from './pages/TeamCalendarPage';
 import HRDashboard from './pages/HR/Dashboard';
 import EmployeeManagement from './pages/HR/EmployeeManagement';
 import AttendanceMgmt from './pages/HR/AttendanceMgmt';
+import PunchLogMgmt from './pages/HR/PunchLogMgmt';
 import LeaveMgmt from './pages/HR/LeaveMgmt';
 import LeaveSettings from './pages/HR/LeaveSettings';
 import PayrollPage from './pages/HR/PayrollPage';
@@ -67,12 +68,17 @@ function ProtectedRoute({ children }) {
 function RoleDashboard() {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  switch (user.role) {
-    case 'super_admin': return <SADashboard />;
-    case 'hr_manager': return <HRDashboard />;
-    case 'employee': return <EmpDashboard />;
-    default: return <Navigate to="/login" replace />;
+  if (user.role === 'super_admin') return <SADashboard />;
+  if (user.role === 'hr_manager') return <HRDashboard />;
+  if (user.role === 'employee') return <EmpDashboard />;
+  
+  // Custom role: show HR dashboard if they have any admin permission, else Employee dashboard
+  const userPermissions = user.permissions || [];
+  const hasAdminPermission = userPermissions.some(p => !p.startsWith('self_') && p !== 'announcements');
+  if (hasAdminPermission) {
+    return <HRDashboard />;
   }
+  return <EmpDashboard />;
 }
 
 function AppRoutes() {
@@ -114,6 +120,7 @@ function AppRoutes() {
       <Route path="/salary-slabs" element={<ProtectedRoute><SalarySlabManagement /></ProtectedRoute>} />
       <Route path="/holidays" element={<ProtectedRoute><HolidayManagement /></ProtectedRoute>} />
       <Route path="/attendance" element={<ProtectedRoute><AttendanceMgmt /></ProtectedRoute>} />
+      <Route path="/punch-logs" element={<ProtectedRoute><PunchLogMgmt /></ProtectedRoute>} />
       <Route path="/leave-management" element={<ProtectedRoute><LeaveMgmt /></ProtectedRoute>} />
       <Route path="/leave-settings" element={<ProtectedRoute><LeaveSettings /></ProtectedRoute>} />
       <Route path="/payroll" element={<ProtectedRoute><PayrollPage /></ProtectedRoute>} />
@@ -154,7 +161,8 @@ function AppRoutes() {
 
 function AnnouncementRouter() {
   const { user } = useAuth();
-  if (user?.role === 'hr_manager' || user?.role === 'super_admin') return <HRAnnouncements />;
+  const hasAnnouncementsPerm = user?.permissions?.includes('announcements');
+  if (user?.role === 'hr_manager' || user?.role === 'super_admin' || hasAnnouncementsPerm) return <HRAnnouncements />;
   return <Announcements />;
 }
 

@@ -12,6 +12,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { AiModule } from './ai/ai.module';
+import { BiometricModule } from './biometric/biometric.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AiModule } from './ai/ai.module';
     WhatsappModule,
     BlockchainModule,
     AiModule,
+    BiometricModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }

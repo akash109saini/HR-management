@@ -80,7 +80,7 @@ export default function PerformancePage() {
                     <Select value={form.employee_id} onValueChange={v => setForm({...form, employee_id: v})}>
                       <SelectTrigger data-testid="review-emp-select"><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>
-                        {employees.filter(e => e.role === 'employee').map(e => (
+                        {employees.filter(e => e.role !== 'super_admin' && e.role !== 'hr_manager').map(e => (
                           <SelectItem key={e.employee_id} value={e.employee_id}>{e.name}</SelectItem>
                         ))}
                       </SelectContent>

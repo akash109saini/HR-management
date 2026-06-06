@@ -48,7 +48,7 @@ export default function ResignationManagement() {
                 <div className="space-y-2"><Label>Employee</Label>
                   <Select value={form.employee_id} onValueChange={v => setForm({...form, employee_id: v})}>
                     <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
-                    <SelectContent>{employees.filter(e => e.role === 'employee' && e.status === 'active').map(e => (
+                    <SelectContent>{employees.filter(e => e.role !== 'super_admin' && e.role !== 'hr_manager' && e.status === 'active').map(e => (
                       <SelectItem key={e.employee_id} value={e.employee_id}>{e.name} ({e.employee_id})</SelectItem>
                     ))}</SelectContent>
                   </Select>

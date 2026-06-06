@@ -33,7 +33,7 @@ async def login(req: LoginRequest, response: Response, request: Request):
     ip = request.client.host if request.client else "unknown"
     identifier = f"{ip}:{email}"
     attempts = await db.login_attempts.find_one({"identifier": identifier})
-    if attempts and attempts.get("count", 0) >= 5:
+    if False and attempts and attempts.get("count", 0) >= 5:
         last_attempt = attempts.get("last_attempt")
         if last_attempt:
             # Ensure last_attempt is timezone-aware

@@ -357,16 +357,40 @@ async def delete_device(device_id: str, request: Request):
 
 
 @admin_router.get("/punches")
-async def list_punches(request: Request, limit: int = 100, device_sn: Optional[str] = None):
+async def list_punches(
+    request: Request,
+    limit: int = 1000,
+    device_sn: Optional[str] = None,
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    source: Optional[str] = None,
+    date: Optional[str] = None,
+):
     user = await get_current_user(request)
     query: Dict[str, Any] = {}
     if user["role"] == "hr_manager":
         query["tenant_id"] = user.get("tenant_id")
     elif user["role"] == "employee":
         query["employee_id"] = user.get("employee_id")
+    elif user["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
     if device_sn:
         query["device_sn"] = device_sn
-    docs = await db.biometric_punches.find(query, {"_id": 0}).sort("received_at", -1).limit(limit).to_list(limit)
+    if status:
+        query["status"] = status
+    if source:
+        query["source"] = source
+    if date:
+        query["timestamp"] = {"$regex": f"^{date}"}
+    if search:
+        query["$or"] = [
+            {"employee_name": {"$regex": search, "$options": "i"}},
+            {"employee_id": {"$regex": search, "$options": "i"}},
+            {"user_pin": {"$regex": search, "$options": "i"}},
+        ]
+
+    docs = await db.biometric_punches.find(query, {"_id": 0}).sort("timestamp", -1).limit(limit).to_list(limit)
     return docs
 
 

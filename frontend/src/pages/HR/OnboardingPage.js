@@ -71,7 +71,7 @@ export default function OnboardingPage() {
                 <Label>Select Employee</Label>
                 <Select value={selectedEmp} onValueChange={v => loadChecklist(v)}>
                   <SelectTrigger data-testid="onboarding-emp-select"><SelectValue placeholder="Choose employee" /></SelectTrigger>
-                  <SelectContent>{employees.filter(e => e.role === 'employee').map(e => <SelectItem key={e.employee_id} value={e.employee_id}>{e.name} ({e.employee_id})</SelectItem>)}</SelectContent>
+                  <SelectContent>{employees.filter(e => e.role !== 'super_admin' && e.role !== 'hr_manager').map(e => <SelectItem key={e.employee_id} value={e.employee_id}>{e.name} ({e.employee_id})</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>

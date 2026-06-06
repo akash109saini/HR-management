@@ -23,9 +23,18 @@ class DatabaseSeeder extends Seeder
 
         // Acme Corp Tenant Creation
         $uuid = (string) \Illuminate\Support\Str::uuid();
-        $dbName = 'hr_tenant_' . str_replace('-', '_', $uuid);
+        $dbPrefix = '';
+        if (env('APP_ENV') === 'production' && str_contains(env('DB_USERNAME'), '_')) {
+            $dbPrefix = explode('_', env('DB_USERNAME'))[0] . '_';
+        }
+        $dbName = $dbPrefix . 'hr_tenant_' . str_replace('-', '_', $uuid);
 
-        \Illuminate\Support\Facades\DB::connection('landlord')->statement("CREATE DATABASE IF NOT EXISTS `{$dbName}`;");
+        if (env('APP_ENV') === 'production') {
+            shell_exec("uapi Mysql create_database name=" . escapeshellarg($dbName));
+            shell_exec("uapi Mysql set_privileges_on_database user=" . escapeshellarg(env('DB_USERNAME')) . " database=" . escapeshellarg($dbName) . " privileges=ALL");
+        } else {
+            \Illuminate\Support\Facades\DB::connection('landlord')->statement("CREATE DATABASE IF NOT EXISTS `{$dbName}`;");
+        }
 
         $tenant = Tenant::create([
             'id' => $uuid,

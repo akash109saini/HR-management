@@ -27,6 +27,30 @@ class EmployeeController extends Controller
         return "EMP-{$prefix}-" . str_pad($count + 1, 3, '0', STR_PAD_LEFT);
     }
 
+    private function appendRoleName($employee)
+    {
+        if (!$employee) return null;
+        
+        $roleName = $employee->role;
+        $systemMapping = [
+            'super_admin' => 'Super Admin',
+            'hr_manager' => 'HR Manager',
+            'employee' => 'Employee',
+        ];
+        if (isset($systemMapping[$employee->role])) {
+            $roleName = $systemMapping[$employee->role];
+        } else {
+            $customRole = \App\Models\CustomRole::find($employee->role);
+            if ($customRole) {
+                $roleName = $customRole->name;
+            }
+        }
+        
+        $arr = $employee->toArray();
+        $arr['role_name'] = $roleName;
+        return $arr;
+    }
+
     public function index(Request $request)
     {
         $user = $request->auth_user;
@@ -35,10 +59,11 @@ class EmployeeController extends Controller
         }
 
         // The tenant connection is already set by the AuthHelper/Middleware
-        $query = User::whereIn('role', ['employee', 'hr_manager']);
+        // Return all users (employees, hr managers, custom roles)
+        $employees = User::orderBy('name', 'asc')->get();
         
-        $employees = $query->orderBy('name', 'asc')->get();
-        return response()->json($employees);
+        $res = $employees->map(fn($emp) => $this->appendRoleName($emp));
+        return response()->json($res);
     }
 
     public function store(Request $request)
@@ -126,7 +151,7 @@ class EmployeeController extends Controller
             \Illuminate\Support\Facades\Log::error("Failed to send welcome email: " . $e->getMessage());
         }
 
-        $response = $newUser->toArray();
+        $response = $this->appendRoleName($newUser);
         $response['initial_password'] = $request->mobile;
         $response['message'] = "Employee created. Initial password is the mobile number: {$request->mobile}";
         
@@ -146,7 +171,7 @@ class EmployeeController extends Controller
             return response()->json(['detail' => 'Not authorized'], 403);
         }
         
-        return response()->json($emp);
+        return response()->json($this->appendRoleName($emp));
     }
 
     public function update(Request $request, string $employeeId)
@@ -186,7 +211,7 @@ class EmployeeController extends Controller
         }
 
         $emp->update($updates);
-        return response()->json($emp->fresh());
+        return response()->json($this->appendRoleName($emp->fresh()));
     }
 
     public function suggestId(Request $request)

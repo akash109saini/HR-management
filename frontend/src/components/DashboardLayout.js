@@ -24,7 +24,7 @@ export default function DashboardLayout({ children }) {
           <div className="md:hidden w-10" />
           <div className="hidden md:block">
             <span className="text-xs uppercase tracking-[0.2em] font-semibold text-muted-foreground">
-              {roleLabel[user?.role] || 'Dashboard'}
+              {user?.role_name || roleLabel[user?.role] || 'Dashboard'}
             </span>
           </div>
           <div className="flex items-center gap-3">

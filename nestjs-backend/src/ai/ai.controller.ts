@@ -1,7 +1,10 @@
-import { Controller, Post, Get, Body, Req, UseGuards, Param } from '@nestjs/common';
+import { Controller, Post, Get, Body, Req, UseGuards, Param, SetMetadata } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/jwt.guard';
 import { AiService } from './ai.service';
+
+export const IS_PUBLIC_KEY = 'isPublic';
+export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
 @ApiTags('ai')
 @Controller('ai')
@@ -12,8 +15,8 @@ export class AiController {
 
   @Post('chat')
   @ApiOperation({ summary: 'AI HR Chatbot - ask HR questions' })
-  async chat(@Req() req: any, @Body() body: { message: string; session_id?: string }) {
-    return this.aiService.chat(body.message, req.user, body.session_id);
+  async chat(@Req() req: any, @Body() body: { message: string; session_id?: string; files?: any[] }) {
+    return this.aiService.chat(body.message, req.user, body.session_id, body.files);
   }
 
   @Get('attrition-risk/:employeeId')
@@ -41,6 +44,7 @@ export class AiController {
   }
 
   @Get('setup-guide')
+  @Public()
   @ApiOperation({ summary: 'AI setup guide' })
   getSetupGuide() {
     return this.aiService.getSetupGuide();

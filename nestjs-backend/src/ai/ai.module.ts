@@ -13,6 +13,9 @@ import { AiService } from './ai.service';
 import { User, UserSchema } from '../employees/schemas/user.schema';
 import { Leave, LeaveSchema } from '../leaves/schemas/leave.schema';
 import { Attendance, AttendanceSchema } from '../attendance/schemas/attendance.schema';
+import { Announcement, AnnouncementSchema } from '../announcements/schemas/announcement.schema';
+import { Payroll, PayrollSchema } from '../payroll/schemas/payroll.schema';
+import { Credential, CredentialSchema } from '../blockchain/schemas/credential.schema';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -21,6 +24,9 @@ import { AuthModule } from '../auth/auth.module';
       { name: User.name, schema: UserSchema },
       { name: Leave.name, schema: LeaveSchema },
       { name: Attendance.name, schema: AttendanceSchema },
+      { name: Announcement.name, schema: AnnouncementSchema },
+      { name: Payroll.name, schema: PayrollSchema },
+      { name: Credential.name, schema: CredentialSchema },
     ]),
     AuthModule,
   ],
@@ -28,4 +34,4 @@ import { AuthModule } from '../auth/auth.module';
   providers: [AiService],
   exports: [AiService],
 })
-export class AiModule {}
+export class AiModule { }

@@ -29,6 +29,8 @@ use App\Http\Controllers\BillingController;
 use App\Http\Controllers\SalaryAdvanceController;
 use App\Http\Controllers\ADMSController;
 use App\Http\Controllers\BiometricDeviceController;
+use App\Http\Controllers\AiController;
+use App\Http\Controllers\RealtimeBiometricController;
 
 // Health check
 Route::get('/', fn() => response()->json(['message' => 'HRMS API v1.0 (Laravel)']));
@@ -49,6 +51,13 @@ Route::prefix('iclock')->group(function () {
     Route::get('/getrequest', [ADMSController::class, 'getRequest']);
     Route::post('/devicecmd', [ADMSController::class, 'commandResult']);
 });
+
+// FkWeb Protocol Endpoints (NO auth — Realtime brand biometric devices use this protocol)
+// Realtime devices POST attendance binary+JSON data to /hdata.aspx
+Route::match(['get', 'post'], '/hdata.aspx', [ADMSController::class, 'handleFkWeb']);
+
+// Realtime Biometric Webhook (NO JWT auth — webhook passes custom token)
+Route::post('/realtime-biometric/push', [RealtimeBiometricController::class, 'handleRealtimePush']);
 
 // Protected routes
 Route::middleware('jwt.auth')->group(function () {
@@ -73,6 +82,10 @@ Route::middleware('jwt.auth')->group(function () {
     Route::post('/attendance/clock-in', [AttendanceController::class, 'clockIn']);
     Route::post('/attendance/clock-out', [AttendanceController::class, 'clockOut']);
     Route::get('/attendance', [AttendanceController::class, 'index']);
+    Route::get('/attendance/punches', [AttendanceController::class, 'punches']);
+    Route::get('/attendance/calendar', [AttendanceController::class, 'getCalendar']);
+
+    Route::get('/attendance/correction-details', [AttendanceController::class, 'getCorrectionDetails']);
     Route::get('/attendance/today', [AttendanceController::class, 'today']);
     Route::post('/attendance/punch-correction', [AttendanceController::class, 'submitCorrection']);
     Route::get('/attendance/punch-corrections', [AttendanceController::class, 'listCorrections']);
@@ -211,6 +224,18 @@ Route::middleware('jwt.auth')->group(function () {
         Route::get('/raw-logs', [BiometricDeviceController::class, 'rawLogs']);
         Route::post('/sync', [BiometricDeviceController::class, 'syncLogs']);
         Route::post('/simulate-punch', [BiometricDeviceController::class, 'simulatePunch']);
+        Route::post('/simulate', [BiometricDeviceController::class, 'simulatePunch']);
         Route::get('/employees-with-pin', [BiometricDeviceController::class, 'employeesWithPin']);
+        Route::get('/punches', [BiometricDeviceController::class, 'punches']);
+        Route::get('/status', [BiometricDeviceController::class, 'status']);
+        Route::get('/setup-guide', [BiometricDeviceController::class, 'setupGuide']);
+    });
+
+    // AI Assistant Endpoints
+    Route::prefix('ai')->group(function () {
+        Route::post('/chat', [AiController::class, 'chat']);
+        Route::post('/sentiment', [AiController::class, 'sentiment']);
+        Route::get('/attrition-risk/{employeeId}', [AiController::class, 'attritionRisk']);
+        Route::get('/career-path/{employeeId}', [AiController::class, 'careerPath']);
     });
 });

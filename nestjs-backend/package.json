@@ -30,6 +30,8 @@
     "@nestjs/swagger": "^11.4.3",
     "@types/bcryptjs": "^3.0.0",
     "@types/passport-jwt": "^4.0.1",
+    "@vectrion/core": "^0.1.1",
+    "@vectrion/provider-google": "^0.1.1",
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
     "class-transformer": "^0.5.1",
@@ -43,7 +45,8 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "swagger-ui-express": "^5.0.1",
-    "uuid": "^14.0.0"
+    "uuid": "^14.0.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

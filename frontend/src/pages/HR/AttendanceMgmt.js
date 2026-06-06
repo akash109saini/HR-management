@@ -8,8 +8,9 @@ import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { CheckCircle, XCircle, Clock, Search, Smartphone, Monitor, Wifi, WifiOff, Plus, RefreshCw, Trash2, MapPin, Activity, FlaskConical, UserCheck, LogIn, LogOut, Zap } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Search, Smartphone, Monitor, Wifi, WifiOff, Plus, RefreshCw, Trash2, MapPin, Activity, FlaskConical, UserCheck, LogIn, LogOut, Zap, CalendarDays } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import AttendanceCalendar from '../../components/AttendanceCalendar';
 
 export default function AttendanceMgmt() {
   const [attendance, setAttendance] = useState([]);
@@ -19,6 +20,8 @@ export default function AttendanceMgmt() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [employees, setEmployees] = useState([]);
+  const [userRole, setUserRole] = useState('');
 
   // Device form
   const [showDeviceForm, setShowDeviceForm] = useState(false);
@@ -71,6 +74,10 @@ export default function AttendanceMgmt() {
     fetchDevices();
     fetchRawLogs();
     fetchSimEmployees();
+    // Fetch employees list for calendar employee filter
+    api.get('/employees').then(res => setEmployees(res.data || [])).catch(() => {});
+    // Get current user role
+    api.get('/auth/me').then(res => setUserRole(res.data?.role || '')).catch(() => {});
   }, []);
 
   const handleCorrectionAction = async (id, status) => {
@@ -240,8 +247,11 @@ export default function AttendanceMgmt() {
           </Card>
         </div>
 
-        <Tabs defaultValue="attendance">
-          <TabsList data-testid="attendance-tabs">
+        <Tabs defaultValue="calendar">
+          <TabsList data-testid="attendance-tabs" className="flex-wrap h-auto gap-1">
+            <TabsTrigger value="calendar" data-testid="tab-calendar" className="gap-1">
+              <CalendarDays size={14} /> Attendance Calendar
+            </TabsTrigger>
             <TabsTrigger value="attendance" data-testid="tab-attendance">Attendance Log</TabsTrigger>
             <TabsTrigger value="corrections" data-testid="tab-corrections">
               Punch Corrections
@@ -272,6 +282,18 @@ export default function AttendanceMgmt() {
             </TabsTrigger>
           </TabsList>
 
+          {/* ========== ATTENDANCE CALENDAR TAB ========== */}
+          <TabsContent value="calendar" className="mt-4">
+            <Card className="border border-border">
+              <CardContent className="p-5">
+                <AttendanceCalendar
+                  userRole={userRole}
+                  employees={employees}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* ========== ATTENDANCE LOG TAB ========== */}
           <TabsContent value="attendance" className="mt-4">
             <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -297,18 +319,23 @@ export default function AttendanceMgmt() {
                       <TableRow>
                         <TableHead>Employee</TableHead>
                         <TableHead>Date</TableHead>
-                        <TableHead>Clock In</TableHead>
-                        <TableHead>Clock Out</TableHead>
-                        <TableHead>Hours</TableHead>
-                        <TableHead>Source</TableHead>
+                        <TableHead>Week Day</TableHead>
+                        <TableHead>Shift Time</TableHead>
+                        <TableHead>In Time</TableHead>
+                        <TableHead>Out Time</TableHead>
+                        <TableHead>Working Hour</TableHead>
+                        <TableHead>Late BY</TableHead>
+                        <TableHead>Early BY</TableHead>
+                        <TableHead>Buffer Utilization</TableHead>
+                        <TableHead>Remaining Buffer</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {loading ? (
-                        <TableRow><TableCell colSpan={7} className="text-center py-8"><div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full mx-auto" /></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={12} className="text-center py-8"><div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full mx-auto" /></TableCell></TableRow>
                       ) : filteredAttendance.length === 0 ? (
-                        <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No records</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">No records</TableCell></TableRow>
                       ) : filteredAttendance.slice(0, 50).map((a, i) => (
                         <TableRow key={a.id || i}>
                           <TableCell>
@@ -318,11 +345,29 @@ export default function AttendanceMgmt() {
                             </div>
                           </TableCell>
                           <TableCell className="text-sm">{a.date}</TableCell>
-                          <TableCell className="text-sm">{a.clock_in ? new Date(a.clock_in).toLocaleTimeString() : '-'}</TableCell>
-                          <TableCell className="text-sm">{a.clock_out ? new Date(a.clock_out).toLocaleTimeString() : '-'}</TableCell>
-                          <TableCell className="text-sm">{a.total_hours || '-'}h</TableCell>
-                          <TableCell>{sourceBadge(a.source || 'manual')}</TableCell>
-                          <TableCell><Badge variant={a.status === 'present' ? 'default' : 'secondary'}>{a.status}</Badge></TableCell>
+                          <TableCell className="text-sm">{a.weekday || '-'}</TableCell>
+                          <TableCell className="text-sm">{a.shift_time || '-'}</TableCell>
+                          <TableCell className="text-sm">{a.in_time || '-'}</TableCell>
+                          <TableCell className="text-sm">{a.out_time || '-'}</TableCell>
+                          <TableCell className="text-sm">{a.working_hour || '-'}</TableCell>
+                          <TableCell className="text-sm">{a.late_by || '-'}</TableCell>
+                          <TableCell className="text-sm">{a.early_by || '-'}</TableCell>
+                          <TableCell className="text-sm">{a.buffer_utilization || '-'}</TableCell>
+                          <TableCell className="text-sm">{a.remaining_buffer || '-'}</TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={a.status === 'present' ? 'default' : a.status === 'half day' ? 'outline' : 'destructive'}
+                              className={
+                                a.status === 'present' 
+                                  ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' 
+                                  : a.status === 'half day' 
+                                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800' 
+                                    : 'bg-red-100 text-red-700 hover:bg-red-100 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800'
+                              }
+                            >
+                              {a.status}
+                            </Badge>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -361,7 +406,11 @@ export default function AttendanceMgmt() {
                             </div>
                           </TableCell>
                           <TableCell className="text-sm">{c.date}</TableCell>
-                          <TableCell><Badge variant="outline">{c.correction_type}</Badge></TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {c.correction_type === 'both' ? 'Punch Correction' : (c.correction_type === 'missed_punch' ? 'Missed Punch' : c.correction_type)}
+                            </Badge>
+                          </TableCell>
                           <TableCell className="text-sm">{c.requested_time}</TableCell>
                           <TableCell className="text-sm max-w-[200px] truncate">{c.reason}</TableCell>
                           <TableCell><Badge variant={statusBadge(c.status)}>{c.status}</Badge></TableCell>
@@ -513,8 +562,8 @@ export default function AttendanceMgmt() {
               </CardHeader>
               <CardContent className="text-xs text-muted-foreground space-y-1">
                 <p><strong>1.</strong> On your ESSL Aiface Mars device, go to <strong>COMM. → Cloud Server Setting</strong></p>
-                <p><strong>2.</strong> Set <strong>Server Address</strong> to your server IP or domain</p>
-                <p><strong>3.</strong> Set <strong>Server Port</strong> to your Laravel port (default: 8000)</p>
+                <p><strong>2.</strong> Set <strong>Server Address</strong> to <code>hr.dmrhospitals.com</code></p>
+                <p><strong>3.</strong> Set <strong>Server Port</strong> to <code>80</code> (or <code>443</code> for secure connection)</p>
                 <p><strong>4.</strong> Set <strong>Server Path</strong> to <code>/api/iclock</code></p>
                 <p><strong>5.</strong> Enable <strong>Cloud Server</strong> and save</p>
                 <p><strong>6.</strong> Enroll employees on the device using the same <strong>Biometric PIN</strong> as assigned in the HR app</p>

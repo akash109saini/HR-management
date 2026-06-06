@@ -269,6 +269,107 @@ class ADMSController extends Controller
     }
 
     /**
+     * POST /hdata.aspx — FkWeb Protocol handler for Realtime brand biometric devices.
+     * The device pushes a binary+JSON hybrid payload to this endpoint.
+     * Must respond with "result=OK" and "Connection: close" header.
+     */
+    public function handleFkWeb(Request $request)
+    {
+        $rawBody = $request->getContent();
+
+        // Extract Cloud ID / Serial Number from headers or query
+        $sn = $request->header('CloudId', 
+              $request->query('CloudId', 
+              $request->query('SN', 
+              $request->query('cloudid', ''))));
+
+        Log::info("FkWeb: Request from SN={$sn}", [
+            'method' => $request->method(),
+            'query'  => $request->query(),
+            'body_length' => strlen($rawBody),
+            'headers' => $request->headers->all(),
+        ]);
+
+        // Try to extract JSON from binary+JSON hybrid payload
+        $jsonStart = strpos($rawBody, '{');
+        $jsonEnd   = strrpos($rawBody, '}');
+        $payload   = null;
+
+        if ($jsonStart !== false && $jsonEnd !== false) {
+            $jsonStr = substr($rawBody, $jsonStart, $jsonEnd - $jsonStart + 1);
+            $payload = json_decode($jsonStr, true);
+        }
+
+        // Extract SN from payload if not in headers/query
+        if (empty($sn) && is_array($payload)) {
+            $sn = $payload['CloudId'] ?? $payload['SN'] ?? $payload['cloudid'] ?? $payload['sn'] ?? '';
+        }
+
+        Log::info("FkWeb: Parsed payload SN={$sn}", ['payload' => $payload]);
+
+        // Update heartbeat if device is registered
+        if (!empty($sn)) {
+            $device = BiometricDevice::where('serial_number', $sn)->first();
+            if ($device) {
+                $device->update(['last_heartbeat' => now()]);
+                Log::info("FkWeb: Heartbeat updated for SN={$sn}");
+            } else {
+                Log::warning("FkWeb: Unknown device SN={$sn} - auto-registering");
+                // Auto-register device so it can sync immediately
+                try {
+                    BiometricDevice::create([
+                        'serial_number'  => $sn,
+                        'name'           => 'Realtime Device ' . $sn,
+                        'status'         => 'active',
+                        'last_heartbeat' => now(),
+                        'tenant_id'      => \DB::table('tenants')->first()->id ?? null,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error("FkWeb: Failed to auto-register device SN={$sn}: " . $e->getMessage());
+                }
+            }
+        }
+
+        // Process attendance logs if present in payload
+        if (is_array($payload) && isset($payload['Punch'])) {
+            $punches = is_array($payload['Punch']) ? $payload['Punch'] : [$payload['Punch']];
+            Log::info("FkWeb: Processing " . count($punches) . " punches from SN={$sn}");
+
+            foreach ($punches as $punch) {
+                try {
+                    $userPin    = $punch['UID'] ?? $punch['PinId'] ?? $punch['pin'] ?? null;
+                    $punchTime  = $punch['DateTime'] ?? $punch['datetime'] ?? $punch['time'] ?? null;
+                    $punchMode  = $punch['IoMode'] ?? $punch['io_mode'] ?? $punch['Status'] ?? 0;
+
+                    if (!$userPin || !$punchTime) continue;
+
+                    // Determine check-in (0) or check-out (1) from bitmask
+                    $punchStatus = ((int)$punchMode & 1) ? 1 : 0;
+
+                    $rawLog = BiometricRawLog::create([
+                        'device_sn'    => $sn,
+                        'user_pin'     => (string) $userPin,
+                        'punched_at'   => Carbon::parse($punchTime),
+                        'punch_status' => $punchStatus,
+                        'verify_mode'  => (int)$punchMode,
+                        'raw_line'     => json_encode($punch),
+                        'synced'       => false,
+                    ]);
+
+                    $this->syncLogToAttendance($rawLog, $sn);
+                } catch (\Exception $e) {
+                    Log::error("FkWeb: Error processing punch from SN={$sn}: " . $e->getMessage(), ['punch' => $punch]);
+                }
+            }
+        }
+
+        // FkWeb protocol REQUIRES "result=OK" body + "Connection: close" header
+        return response("result=OK\r\n", 200)
+            ->header('Content-Type', 'text/plain')
+            ->header('Connection', 'close');
+    }
+
+    /**
      * GET /iclock/getrequest — Device polls for pending commands.
      * For now, we return empty (no pending commands).
      */

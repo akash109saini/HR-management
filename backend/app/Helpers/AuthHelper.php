@@ -44,12 +44,13 @@ class AuthHelper
 
     public static function getCurrentUser(Request $request): ?array
     {
-        $token = $request->cookie('access_token');
+        $token = null;
+        $authHeader = $request->header('Authorization', '');
+        if (str_starts_with($authHeader, 'Bearer ')) {
+            $token = substr($authHeader, 7);
+        }
         if (!$token) {
-            $authHeader = $request->header('Authorization', '');
-            if (str_starts_with($authHeader, 'Bearer ')) {
-                $token = substr($authHeader, 7);
-            }
+            $token = $request->cookie('access_token');
         }
         if (!$token) return null;
 
@@ -77,6 +78,29 @@ class AuthHelper
             $arr['id'] = (string)$user->id;
             $arr['role'] = $payload->role; // Ensure role is available
             $arr['tenant_id'] = $payload->tenant_id ?? null;
+
+            // Fetch custom role permissions if applicable
+            $permissions = [];
+            $roleName = $payload->role;
+            if ($payload->role === 'super_admin') {
+                $permissions = ['*'];
+                $roleName = 'Super Admin';
+            } elseif ($payload->role === 'hr_manager') {
+                $permissions = ['employees', 'departments', 'attendance', 'leaves', 'payroll', 'recruitment', 'performance', 'announcements', 'terminations', 'resignations', 'shifts', 'designations', 'salary_slabs', 'holidays', 'onboarding'];
+                $roleName = 'HR Manager';
+            } elseif ($payload->role === 'employee') {
+                $permissions = ['self_attendance', 'self_leaves', 'self_payslips', 'announcements', 'self_profile'];
+                $roleName = 'Employee';
+            } else {
+                $customRole = \App\Models\CustomRole::find($payload->role);
+                if ($customRole) {
+                    $permissions = $customRole->permissions ?? [];
+                    $roleName = $customRole->name;
+                }
+            }
+            $arr['permissions'] = $permissions;
+            $arr['role_name'] = $roleName;
+
             return $arr;
         } catch (\Exception $e) {
             return null;

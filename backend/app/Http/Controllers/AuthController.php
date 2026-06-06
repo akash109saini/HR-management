@@ -45,11 +45,32 @@ class AuthController extends Controller
         $accessToken = AuthHelper::createAccessToken($userId, $user->email, $role, $tenantId);
         $refreshToken = AuthHelper::createRefreshToken($userId);
 
+        $permissions = [];
+        $roleName = $role;
+        if ($role === 'super_admin') {
+            $permissions = ['*'];
+            $roleName = 'Super Admin';
+        } elseif ($role === 'hr_manager') {
+            $permissions = ['employees', 'departments', 'attendance', 'leaves', 'payroll', 'recruitment', 'performance', 'announcements', 'terminations', 'resignations', 'shifts', 'designations', 'salary_slabs', 'holidays', 'onboarding'];
+            $roleName = 'HR Manager';
+        } elseif ($role === 'employee') {
+            $permissions = ['self_attendance', 'self_leaves', 'self_payslips', 'announcements', 'self_profile'];
+            $roleName = 'Employee';
+        } else {
+            $customRole = \App\Models\CustomRole::find($role);
+            if ($customRole) {
+                $permissions = $customRole->permissions ?? [];
+                $roleName = $customRole->name;
+            }
+        }
+
         return response()->json([
             'id' => $userId,
             'email' => $user->email,
             'name' => $user->name,
-            'role' => $user->role,
+            'role' => $role,
+            'role_name' => $roleName,
+            'permissions' => $permissions,
             'tenant_id' => $tenantId,
             'employee_id' => $user->employee_id,
             'first_login' => $user->first_login,
@@ -66,12 +87,13 @@ class AuthController extends Controller
     {
         $request->validate(['current_password' => 'required', 'new_password' => 'required|min:6']);
 
-        $token = $request->cookie('access_token');
+        $token = null;
+        $authHeader = $request->header('Authorization', '');
+        if (str_starts_with($authHeader, 'Bearer ')) {
+            $token = substr($authHeader, 7);
+        }
         if (!$token) {
-            $authHeader = $request->header('Authorization', '');
-            if (str_starts_with($authHeader, 'Bearer ')) {
-                $token = substr($authHeader, 7);
-            }
+            $token = $request->cookie('access_token');
         }
         if (!$token) return response()->json(['detail' => 'Not authenticated'], 401);
 
@@ -105,7 +127,7 @@ class AuthController extends Controller
         ]);
 
         $userId = (string)$user->id;
-        $accessToken = AuthHelper::createAccessToken($userId, $user->email, $user->role, $user->tenant_id);
+        $accessToken = AuthHelper::createAccessToken($userId, $user->email, $payload->role, $payload->tenant_id ?? null);
         $refreshToken = AuthHelper::createRefreshToken($userId);
 
         return response()->json(['message' => 'Password changed successfully', 'access_token' => $accessToken])

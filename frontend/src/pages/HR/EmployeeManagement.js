@@ -386,7 +386,7 @@ export default function EmployeeManagement() {
                                     <div><span className="text-muted-foreground">Shift: </span><span className="font-medium">{emp.shift || '—'}</span></div>
                                     <div><span className="text-muted-foreground">Joining Date: </span><span className="font-medium">{emp.joining_date ? emp.joining_date.split('T')[0] : '—'}</span></div>
                                     <div><span className="text-muted-foreground">Biometric PIN: </span><span className="font-mono font-medium">{emp.biometric_pin || 'Not assigned'}</span></div>
-                                    <div><span className="text-muted-foreground">Role: </span><span className="font-medium capitalize">{emp.role || 'employee'}</span></div>
+                                    <div><span className="text-muted-foreground">Role: </span><span className="font-medium capitalize">{emp.role_name || emp.role || 'employee'}</span></div>
                                   </div>
                                 </div>
 

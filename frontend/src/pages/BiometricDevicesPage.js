@@ -240,7 +240,7 @@ export default function BiometricDevicesPage() {
                               {d.status === 'pending' && <Badge variant="outline" className="text-xs border-amber-500/40 text-amber-700">Pending claim</Badge>}
                               {d.status === 'active' && <Badge className="text-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20">Active</Badge>}
                               {d.is_simulator && <Badge variant="outline" className="text-xs">Simulator</Badge>}
-                              {d.online && (
+                              {d.is_online && (
                                 <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
                                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Online
                                 </span>
@@ -248,7 +248,7 @@ export default function BiometricDevicesPage() {
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">{d.location || '—'}</p>
                             <p className="text-xs font-mono text-muted-foreground mt-1">
-                              Last ping: {d.last_ping ? new Date(d.last_ping).toLocaleString() : 'never'}
+                              Last ping: {d.last_heartbeat ? new Date(d.last_heartbeat).toLocaleString() : 'never'}
                             </p>
                           </div>
                           <div className="flex gap-2">

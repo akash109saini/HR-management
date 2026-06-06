@@ -62,6 +62,10 @@ export class User extends Document {
   // AI-computed attrition risk score 0-100
   @Prop({ default: 0 })
   attrition_risk_score: number;
+
+  // Biometric device PIN/enrollment ID
+  @Prop()
+  biometric_pin: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

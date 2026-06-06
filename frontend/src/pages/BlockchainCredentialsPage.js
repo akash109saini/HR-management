@@ -42,7 +42,8 @@ function CopyBtn({ value, label = 'Copy' }) {
 
 export default function BlockchainCredentialsPage() {
   const { user } = useAuth();
-  const isHR = user?.role === 'super_admin' || user?.role === 'hr_manager';
+  const userPermissions = user?.permissions || [];
+  const isHR = user?.role === 'super_admin' || user?.role === 'hr_manager' || userPermissions.some(p => !p.startsWith('self_') && p !== 'announcements');
 
   const [tab, setTab] = useState('list'); // list | issue | verify
   const [status, setStatus] = useState(null);

@@ -3,9 +3,9 @@ import api, { formatApiError } from '../lib/api';
 import DashboardLayout from '../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
-import { Bot, Send, User, Sparkles, TrendingDown, FileText, Brain, ChevronRight, Loader2 } from 'lucide-react';
+import { Textarea } from '../components/ui/textarea';
+import { Bot, Send, User, Sparkles, TrendingDown, FileText, Brain, ChevronRight, Loader2, Paperclip, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const QUICK_QUESTIONS = [
@@ -21,7 +21,7 @@ export default function AIAssistantPage() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: `👋 Hello ${user?.name || 'there'}! I'm your AI HR Assistant powered by GPT-4.1. Ask me anything about your leaves, payslips, policies, or career development!`,
+      content: `✨ Hello ${user?.name || 'there'}! I'm your AI HR Assistant powered by Google Gemini. Ask me anything about your leaves, payslips, attendance, policies, or career development!`,
     },
   ]);
   const [input, setInput] = useState('');
@@ -42,25 +42,89 @@ export default function AIAssistantPage() {
   const [careerResult, setCareerResult] = useState(null);
   const [careerLoading, setCareerLoading] = useState(false);
 
+  // Multimodal file attachment state
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+
+    files.forEach(file => {
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`File ${file.name} is too large (max 10MB)`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Data = reader.result.split(',')[1];
+        setSelectedFiles(prev => [
+          ...prev,
+          {
+            name: file.name,
+            type: file.type,
+            data: base64Data,
+            rawFile: file
+          }
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const sendMessage = async (text) => {
-    if (!text.trim() || loading) return;
-    const userMsg = { role: 'user', content: text };
+    if (!text.trim() && selectedFiles.length === 0 || loading) return;
+
+    const userMsg = {
+      role: 'user',
+      content: text + (selectedFiles.length > 0 ? `\n\n[Attached ${selectedFiles.length} file(s): ${selectedFiles.map(f => f.name).join(', ')}]` : '')
+    };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
+
+    const filesPayload = selectedFiles.map(f => ({
+      name: f.name,
+      type: f.type,
+      data: f.data
+    }));
+
+    setSelectedFiles([]);
+
     try {
-      const { data } = await api.post('/ai/chat', { message: text, session_id: sessionId });
+      const { data } = await api.post('/ai/chat', {
+        message: text,
+        session_id: sessionId,
+        files: filesPayload
+      });
       setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
     } catch (err) {
       setMessages(prev => [...prev, { role: 'assistant', content: `❌ ${formatApiError(err.response?.data?.detail) || 'Error connecting to AI'}` }]);
     }
     setLoading(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (input.trim() || selectedFiles.length > 0) {
+        sendMessage(input);
+      }
+    }
   };
 
   const analyzeSentiment = async () => {
@@ -121,7 +185,7 @@ export default function AIAssistantPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight font-['Outfit']">AI HR Assistant</h1>
-            <p className="text-sm text-muted-foreground">Powered by GPT-4.1 — Ask anything about HR, analyze sentiment, predict risks</p>
+            <p className="text-sm text-muted-foreground">Powered by Google Gemini — Ask anything about HR, analyze sentiment, predict risks</p>
           </div>
           <Badge className="ml-auto bg-emerald-100 text-emerald-700 border-emerald-200">Live</Badge>
         </div>
@@ -180,16 +244,70 @@ export default function AIAssistantPage() {
                   )}
                   <div ref={messagesEndRef} />
                 </CardContent>
-                <div className="p-4 border-t border-border">
-                  <form onSubmit={e => { e.preventDefault(); sendMessage(input); }} className="flex gap-2">
-                    <Input
+                <div className="p-4 border-t border-border flex flex-col gap-3">
+                  {/* File Previews */}
+                  {selectedFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-2 p-2 bg-muted/40 border border-border rounded-lg">
+                      {selectedFiles.map((file, idx) => {
+                        const isImage = file.type.startsWith('image/');
+                        return (
+                          <div key={idx} className="relative group flex items-center gap-2 bg-card border border-border p-1.5 rounded-md pr-8 max-w-[180px]">
+                            {isImage ? (
+                              <img
+                                src={URL.createObjectURL(file.rawFile)}
+                                alt={file.name}
+                                className="w-8 h-8 object-cover rounded"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                                <FileText size={16} />
+                              </div>
+                            )}
+                            <span className="text-xs font-medium truncate max-w-[100px]">{file.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeFile(idx)}
+                              className="absolute top-1/2 -translate-y-1/2 right-2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-muted"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <form onSubmit={e => { e.preventDefault(); sendMessage(input); }} className="flex gap-2 items-end">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      className="hidden"
+                      multiple
+                      accept="image/*,application/pdf,text/plain,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={loading}
+                      className="flex-shrink-0 h-10 w-10 border-border hover:bg-muted"
+                    >
+                      <Paperclip size={16} className="text-muted-foreground" />
+                    </Button>
+
+                    <Textarea
                       value={input}
                       onChange={e => setInput(e.target.value)}
-                      placeholder="Ask anything... e.g. 'How many leaves do I have?'"
+                      onKeyDown={handleKeyDown}
+                      placeholder="Type a message... (Shift + Enter for new line)"
                       disabled={loading}
-                      className="flex-1"
+                      rows={1}
+                      className="flex-1 min-h-[40px] max-h-[120px] resize-none py-2 px-3 border-border bg-background focus-visible:ring-1 focus-visible:ring-primary rounded-lg text-sm"
                     />
-                    <Button type="submit" disabled={loading || !input.trim()} size="icon">
+
+                    <Button type="submit" disabled={loading || (!input.trim() && selectedFiles.length === 0)} size="icon" className="h-10 w-10 flex-shrink-0">
                       <Send size={16} />
                     </Button>
                   </form>

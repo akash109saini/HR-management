@@ -165,4 +165,9 @@ credentials.json
 .credentials
 
 mongodb_data/
+mysql_local/
+*.log
+nestjs-backend/test_*.mjs
+mongodb_inspect_report.json
+Api_Realtime.com/
 

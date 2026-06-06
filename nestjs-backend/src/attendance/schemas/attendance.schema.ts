@@ -32,6 +32,23 @@ export class Attendance extends Document {
 
   @Prop()
   notes: string;
+
+  // Biometric source fields
+  @Prop()
+  source: string;
+
+  @Prop()
+  device_sn: string;
+
+  // Aliases for clock_in / clock_out (biometric uses these)
+  @Prop()
+  clock_in: string;
+
+  @Prop()
+  clock_out: string;
+
+  @Prop()
+  created_at: string;
 }
 
 export const AttendanceSchema = SchemaFactory.createForClass(Attendance);

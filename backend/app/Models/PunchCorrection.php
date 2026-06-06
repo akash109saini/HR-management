@@ -16,9 +16,8 @@ class PunchCorrection extends Model
     protected $fillable = [
         'attendance_id',
         'user_id',
-        'date',
         'type',
-        'requested_time',
+        'corrected_time',
         'reason',
         'status',
         'reviewed_by',

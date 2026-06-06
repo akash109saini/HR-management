@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import storage from '../lib/storage';
 
 const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('hrms-theme');
+    const saved = storage.getItem('hrms-theme');
     return saved || 'light';
   });
 
@@ -15,7 +16,7 @@ export function ThemeProvider({ children }) {
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem('hrms-theme', theme);
+    storage.setItem('hrms-theme', theme);
   }, [theme]);
 
   const toggleTheme = () => setTheme((t) => (t === 'light' ? 'dark' : 'light'));

@@ -25,12 +25,7 @@ class BiometricDeviceController extends Controller
             return response()->json(['detail' => 'Not authorized'], 403);
         }
 
-        $tenantId = $user['tenant_id'] ?? null;
-
-        // Super admin can filter by tenant_id query param
-        if ($user['role'] === 'super_admin') {
-            $tenantId = $request->query('tenant_id', $tenantId);
-        }
+        $tenantId = $this->resolveTenantConnection($request, $user);
 
         if (!$tenantId) {
             return response()->json(['detail' => 'Tenant ID required'], 400);
@@ -59,10 +54,7 @@ class BiometricDeviceController extends Controller
             'location' => 'nullable|string|max:255',
         ]);
 
-        $tenantId = $user['tenant_id'] ?? null;
-        if ($user['role'] === 'super_admin') {
-            $tenantId = $request->input('tenant_id', $tenantId);
-        }
+        $tenantId = $this->resolveTenantConnection($request, $user);
 
         if (!$tenantId) {
             return response()->json(['detail' => 'Tenant ID required'], 400);
@@ -142,6 +134,8 @@ class BiometricDeviceController extends Controller
             return response()->json(['detail' => 'Not authorized'], 403);
         }
 
+        $this->resolveTenantConnection($request, $user);
+
         $query = BiometricRawLog::query();
 
         if ($date = $request->query('date')) {
@@ -220,10 +214,24 @@ class BiometricDeviceController extends Controller
      */
     private function syncSingleLog(BiometricRawLog $log): void
     {
-        $user = User::where('biometric_pin', $log->user_pin)->first();
+        $userPin = $log->user_pin;
+        $normalizedPin = ltrim($userPin, '0');
+        if ($normalizedPin === '') {
+            $normalizedPin = '0';
+        }
+
+        $user = User::where(function ($query) use ($userPin, $normalizedPin) {
+            $query->where('biometric_pin', $userPin)
+                  ->orWhere('biometric_pin', $normalizedPin)
+                  ->orWhere('employee_id', $userPin)
+                  ->orWhere('employee_id', $normalizedPin)
+                  ->orWhereRaw("TRIM(LEADING '0' FROM biometric_pin) = ?", [$normalizedPin])
+                  ->orWhereRaw("TRIM(LEADING '0' FROM employee_id) = ?", [$normalizedPin]);
+        })->first();
+
         if (!$user) {
             $log->update([
-                'sync_error' => "No employee found with biometric_pin={$log->user_pin}",
+                'sync_error' => "No employee found with biometric_pin={$log->user_pin} (normalized: {$normalizedPin})",
             ]);
             return;
         }
@@ -256,7 +264,7 @@ class BiometricDeviceController extends Controller
         } elseif ($log->punch_status === 1) {
             if ($attendance && $attendance->clock_in && !$attendance->clock_out) {
                 $clockIn = Carbon::parse($attendance->clock_in);
-                $totalHours = round($log->punched_at->diffInSeconds($clockIn) / 3600, 2);
+                $totalHours = abs(round($log->punched_at->diffInSeconds($clockIn) / 3600, 2));
                 $attendance->update([
                     'clock_out' => $punchTime,
                     'total_hours' => $totalHours,
@@ -307,23 +315,33 @@ class BiometricDeviceController extends Controller
         }
 
         $request->validate([
-            'device_sn' => 'required|string',
+            'device_sn' => 'nullable|string',
             'user_pin' => 'required|string',
-            'punch_status' => 'required|integer|in:0,1,2,3,4,5',
+            'punch_status' => 'sometimes|integer|in:0,1,2,3,4,5',
+            'status' => 'sometimes|integer|in:0,1,2,3,4,5',
+            'verify_mode' => 'nullable|integer',
             'timestamp' => 'nullable|string',
         ]);
 
-        $deviceSn = $request->device_sn;
+        $deviceSn = $request->device_sn ?? 'SIMULATOR-001';
         $userPin = $request->user_pin;
-        $punchStatus = (int) $request->punch_status;
+        $punchStatus = (int) ($request->has('punch_status') ? $request->punch_status : ($request->has('status') ? $request->status : 0));
+        $verifyMode = (int) ($request->verify_mode ?? 15);
         $timestamp = $request->timestamp ? Carbon::parse($request->timestamp) : now();
 
-        // Verify device exists and belongs to this tenant
-        $tenantId = $user['tenant_id'] ?? null;
+        $tenantId = $this->resolveTenantConnection($request, $user);
         $device = BiometricDevice::where('serial_number', $deviceSn)->first();
 
         if (!$device) {
-            return response()->json(['detail' => 'Device not found. Register it first in the Biometric Devices tab.'], 404);
+            $defaultTenant = Tenant::first();
+            $device = BiometricDevice::create([
+                'tenant_id' => $tenantId ?? ($defaultTenant ? $defaultTenant->id : null),
+                'serial_number' => $deviceSn,
+                'name' => "Simulator Device",
+                'location' => 'Virtual',
+                'status' => 'active',
+                'last_heartbeat' => now(),
+            ]);
         }
 
         if ($tenantId && $device->tenant_id !== $tenantId) {
@@ -334,7 +352,7 @@ class BiometricDeviceController extends Controller
         $device->update(['last_heartbeat' => now()]);
 
         // Build the ATTLOG line exactly as the device would send it
-        $rawLine = "{$userPin}\t{$timestamp->format('Y-m-d H:i:s')}\t{$punchStatus}\t15\t\t0\t0";
+        $rawLine = "{$userPin}\t{$timestamp->format('Y-m-d H:i:s')}\t{$punchStatus}\t{$verifyMode}\t\t0\t0";
 
         // Create raw log (same as real device would)
         $rawLog = BiometricRawLog::create([
@@ -342,7 +360,7 @@ class BiometricDeviceController extends Controller
             'user_pin' => $userPin,
             'punched_at' => $timestamp,
             'punch_status' => $punchStatus,
-            'verify_mode' => 15, // Face (simulated)
+            'verify_mode' => $verifyMode,
             'raw_line' => "[SIMULATED] " . $rawLine,
             'synced' => false,
         ]);
@@ -361,6 +379,18 @@ class BiometricDeviceController extends Controller
                 ? '✅ Punch simulated successfully!'
                 : '⚠️ Punch recorded but sync failed: ' . ($rawLog->sync_error ?? 'Unknown error'),
             'raw_log' => $rawLog,
+            'punch' => [
+                'punch_id' => $rawLog->id,
+                'device_sn' => $deviceSn,
+                'device_name' => $device->name,
+                'user_pin' => $userPin,
+                'employee_id' => $employee ? $employee->employee_id : null,
+                'employee_name' => $employee ? $employee->name : null,
+                'timestamp' => $timestamp->toIso8601String(),
+                'status' => $rawLog->punch_status_label,
+                'verify_mode' => $rawLog->verify_mode_label,
+                'matched' => $rawLog->synced,
+            ],
             'employee' => $employee ? [
                 'name' => $employee->name,
                 'employee_id' => $employee->employee_id,
@@ -368,6 +398,168 @@ class BiometricDeviceController extends Controller
             ] : null,
             'punch_type' => $punchStatus === 0 ? 'Check-In' : ($punchStatus === 1 ? 'Check-Out' : 'Other'),
             'timestamp' => $timestamp->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * List recent punch events (for live punches tab).
+     * GET /api/biometric/punches
+     */
+    public function punches(Request $request)
+    {
+        $user = $request->auth_user;
+        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) {
+            return response()->json(['detail' => 'Not authorized'], 403);
+        }
+
+        $this->resolveTenantConnection($request, $user);
+
+        $query = BiometricRawLog::query();
+
+        if ($deviceSn = $request->query('device_sn')) {
+            $query->where('device_sn', $deviceSn);
+        }
+
+        if ($status = $request->query('status')) {
+            $statusCode = match ($status) {
+                'check_in' => 0,
+                'check_out' => 1,
+                'break_out' => 2,
+                'break_in' => 3,
+                default => null,
+            };
+            if ($statusCode !== null) {
+                $query->where('punch_status', $statusCode);
+            }
+        }
+
+        if ($source = $request->query('source')) {
+            if ($source === 'simulator') {
+                $query->where('raw_line', 'LIKE', '%[SIMULATED]%');
+            } elseif ($source === 'device_push') {
+                $query->where('raw_line', 'NOT LIKE', '%[SIMULATED]%')
+                      ->orWhereNull('raw_line');
+            }
+        }
+
+        if ($date = $request->query('date')) {
+            $query->whereDate('punched_at', $date);
+        }
+
+        if ($search = $request->query('search')) {
+            $matchingPins = User::where('name', 'LIKE', "%{$search}%")
+                ->orWhere('employee_id', 'LIKE', "%{$search}%")
+                ->orWhere('biometric_pin', 'LIKE', "%{$search}%")
+                ->pluck('biometric_pin')
+                ->filter()
+                ->unique()
+                ->toArray();
+
+            $query->where(function ($q) use ($matchingPins, $search) {
+                $q->whereIn('user_pin', $matchingPins)
+                  ->orWhere('user_pin', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $limit = $request->query('limit', 1000);
+        $logs = $query->orderBy('punched_at', 'desc')->limit($limit)->get();
+
+        $pins = $logs->pluck('user_pin')->unique();
+        $employees = User::whereIn('biometric_pin', $pins)->get()->keyBy('biometric_pin');
+
+        $enriched = $logs->map(function ($log) use ($employees) {
+            $emp = $employees->get($log->user_pin);
+            $source = 'device_push';
+            if ($log->raw_line && strpos($log->raw_line, '[SIMULATED]') !== false) {
+                $source = 'simulator';
+            }
+            return [
+                'punch_id' => $log->id,
+                'device_sn' => $log->device_sn,
+                'device_name' => "Realtime Device " . $log->device_sn,
+                'user_pin' => $log->user_pin,
+                'employee_id' => $emp ? $emp->employee_id : null,
+                'employee_name' => $emp ? $emp->name : null,
+                'timestamp' => $log->punched_at->toIso8601String(),
+                'status' => strtolower(str_replace('-', '_', $log->punch_status_label)),
+                'verify_mode' => $log->verify_mode_label,
+                'source' => $source,
+                'matched' => (bool)$emp,
+            ];
+        });
+
+        return response()->json($enriched);
+    }
+
+    /**
+     * Get biometric device setup configuration for the user.
+     * GET /api/biometric/setup-guide
+     */
+    public function setupGuide(Request $request)
+    {
+        $user = $request->auth_user;
+        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) {
+            return response()->json(['detail' => 'Not authorized'], 403);
+        }
+
+        $host = $request->header('host', 'hr.dmrhospitals.com');
+        $scheme = $request->secure() ? 'https' : 'http';
+
+        return response()->json([
+            'model' => 'Realtime T304F+ (and other ADMS/Push-capable devices)',
+            'menu_path' => 'Api_Realtime.com Parallel Export / Device Comm Setting',
+            'config' => [
+                'Server Address (Domain)' => $host,
+                'Server Port' => $scheme === 'https' ? '443' : '80',
+                'Server Path' => '/api/iclock',
+                'Webhook Endpoint' => "{$scheme}://{$host}/api/realtime-biometric/push",
+                'Authorization Token' => env('BIOMETRIC_AUTH_TOKEN', 'realtime_t304f_auth_token_2026'),
+            ],
+            'webhook_endpoints' => [
+                'handshake' => "{$scheme}://{$host}/api/iclock/cdata",
+                'push_attendance' => "{$scheme}://{$host}/api/realtime-biometric/push",
+            ],
+            'next_steps' => [
+                '1. Configure your local Api_Realtime.com exporter settings.',
+                '2. Enter the Webhook URL and Authorization Token shown above.',
+                '3. Save settings. Devices will auto-register on the live server upon the first punch!',
+                '4. Set employee biometric PINs in the directory to automatically sync punches to attendance.',
+            ],
+        ]);
+    }
+
+    /**
+     * Get biometric integration stats for dashboard cards.
+     * GET /api/biometric/status
+     */
+    public function status(Request $request)
+    {
+        $user = $request->auth_user;
+        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) {
+            return response()->json(['detail' => 'Not authorized'], 403);
+        }
+
+        $tenantId = $this->resolveTenantConnection($request, $user);
+
+        $devicesQuery = BiometricDevice::query();
+        if ($tenantId) {
+            $devicesQuery->where('tenant_id', $tenantId);
+        }
+        $devicesTotal = $devicesQuery->count();
+
+        $cutoff = now()->subMinutes(30);
+        $devicesOnlineQuery = BiometricDevice::query()->where('last_heartbeat', '>=', $cutoff);
+        if ($tenantId) {
+            $devicesOnlineQuery->where('tenant_id', $tenantId);
+        }
+        $devicesOnline = $devicesOnlineQuery->count();
+
+        $punchesToday = BiometricRawLog::whereDate('punched_at', today())->count();
+
+        return response()->json([
+            'devices_total' => $devicesTotal,
+            'devices_online' => $devicesOnline,
+            'punches_today' => $punchesToday,
         ]);
     }
 
@@ -382,6 +574,8 @@ class BiometricDeviceController extends Controller
             return response()->json(['detail' => 'Not authorized'], 403);
         }
 
+        $this->resolveTenantConnection($request, $user);
+
         $employees = User::whereNotNull('biometric_pin')
             ->where('biometric_pin', '!=', '')
             ->select('id', 'name', 'employee_id', 'biometric_pin', 'department', 'designation')
@@ -389,5 +583,30 @@ class BiometricDeviceController extends Controller
             ->get();
 
         return response()->json($employees);
+    }
+
+    /**
+     * Resolve and configure the tenant database connection.
+     */
+    private function resolveTenantConnection(Request $request, $user)
+    {
+        $tenantId = $user['tenant_id'] ?? null;
+        if ($user['role'] === 'super_admin') {
+            $tenantId = $request->query('tenant_id', $request->input('tenant_id', $tenantId));
+        }
+        if (!$tenantId) {
+            $defaultTenant = Tenant::first();
+            $tenantId = $defaultTenant ? $defaultTenant->id : null;
+        }
+
+        if ($tenantId) {
+            $tenant = Tenant::find($tenantId);
+            if ($tenant) {
+                Config::set('database.connections.tenant.database', $tenant->database_name);
+                DB::purge('tenant');
+                DB::reconnect('tenant');
+            }
+        }
+        return $tenantId;
     }
 }

@@ -166,6 +166,16 @@ class TestBiometricAdmin:
         r = requests.get(f"{BASE_URL}/api/biometric/punches", headers=H(hr_token), timeout=20)
         assert r.status_code == 200, f"{r.status_code}: {r.text}"
 
+    def test_punches_list_filtered(self, hr_token):
+        r1 = requests.get(f"{BASE_URL}/api/biometric/punches?search=EMP-ACME-002", headers=H(hr_token), timeout=20)
+        assert r1.status_code == 200
+        r2 = requests.get(f"{BASE_URL}/api/biometric/punches?device_sn=SIMULATOR-001", headers=H(hr_token), timeout=20)
+        assert r2.status_code == 200
+        r3 = requests.get(f"{BASE_URL}/api/biometric/punches?status=check_in", headers=H(hr_token), timeout=20)
+        assert r3.status_code == 200
+        r4 = requests.get(f"{BASE_URL}/api/biometric/punches?date=2026-06-06", headers=H(hr_token), timeout=20)
+        assert r4.status_code == 200
+
     def test_setup_guide(self, hr_token):
         r = requests.get(f"{BASE_URL}/api/biometric/setup-guide", headers=H(hr_token), timeout=20)
         assert r.status_code == 200, f"{r.status_code}: {r.text}"

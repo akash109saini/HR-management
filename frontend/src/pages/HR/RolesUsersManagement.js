@@ -32,14 +32,25 @@ export default function RolesUsersManagement() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const fetch = async () => {
+  const getRoleName = (roleValue) => {
+    const systemMapping = {
+      super_admin: 'Super Admin',
+      hr_manager: 'HR Manager',
+      employee: 'Employee'
+    };
+    if (systemMapping[roleValue]) return systemMapping[roleValue];
+    const role = roles.find(r => r.id === roleValue);
+    return role ? role.name : roleValue;
+  };
+
+  const loadData = async () => {
     try {
       const [rRes, uRes] = await Promise.all([api.get('/roles'), api.get('/users')]);
       setRoles(rRes.data);
       setUsers(uRes.data);
     } catch {} setLoading(false);
   };
-  useEffect(() => { fetch(); }, []);
+  useEffect(() => { loadData(); }, []);
 
   const handleCreateRole = async () => {
     setError('');
@@ -47,19 +58,19 @@ export default function RolesUsersManagement() {
       await api.post('/roles', roleForm);
       setShowCreateRole(false);
       setRoleForm({ name: '', description: '', permissions: [] });
-      fetch();
+      loadData();
     } catch (e) { setError(formatApiError(e.response?.data?.detail)); }
   };
 
-  const handleDeleteRole = async (id) => { if (window.confirm('Delete this role?')) { await api.delete(`/roles/${id}`); fetch(); } };
+  const handleDeleteRole = async (id) => { if (window.confirm('Delete this role?')) { await api.delete(`/roles/${id}`); loadData(); } };
 
   const handleUpdateUser = async () => {
     setError(''); setSuccess('');
     try {
       await api.put(`/users/${editUser.employee_id}`, userForm);
-      setSuccess('User updated!');
+      setSuccess('User updated successfully!');
       setEditUser(null);
-      fetch();
+      loadData();
     } catch (e) { setError(formatApiError(e.response?.data?.detail)); }
   };
 
@@ -108,7 +119,7 @@ export default function RolesUsersManagement() {
                     <TableCell className="font-mono text-xs">{u.employee_id}</TableCell>
                     <TableCell className="font-medium">{u.name}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
-                    <TableCell><Badge variant="outline">{u.role}</Badge></TableCell>
+                    <TableCell><Badge variant="outline">{getRoleName(u.role)}</Badge></TableCell>
                     <TableCell className="text-sm">{u.department || '-'}</TableCell>
                     <TableCell><Badge variant={u.status === 'active' ? 'default' : 'secondary'}>{u.status}</Badge></TableCell>
                     <TableCell><div className="flex gap-1">
@@ -118,9 +129,18 @@ export default function RolesUsersManagement() {
                           <DialogHeader><DialogTitle>Edit User: {u.name}</DialogTitle></DialogHeader>
                           <div className="space-y-4">
                             <div className="space-y-2"><Label>Role</Label>
-                              <Select value={userForm.role} onValueChange={v => setUserForm({...userForm, role: v})}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent><SelectItem value="employee">Employee</SelectItem><SelectItem value="hr_manager">HR Manager</SelectItem></SelectContent>
+                               <Select value={userForm.role} onValueChange={v => setUserForm({...userForm, role: v})}>
+                                <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+                                <SelectContent>
+                                  {roles.map(r => {
+                                    const val = r.id.startsWith('system_') ? r.id.replace('system_', '') : r.id;
+                                    return (
+                                      <SelectItem key={r.id} value={val}>
+                                        {r.name}
+                                      </SelectItem>
+                                    );
+                                  })}
+                                </SelectContent>
                               </Select>
                             </div>
                             <div className="space-y-2"><Label>Status</Label>

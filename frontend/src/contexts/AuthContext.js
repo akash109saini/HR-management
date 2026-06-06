@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api, { formatApiError } from '../lib/api';
+import storage from '../lib/storage';
 
 const AuthContext = createContext(null);
 
@@ -24,9 +25,9 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
-    // Store token in localStorage for axios interceptor
+    // Store token in storage for axios interceptor
     if (data.access_token) {
-      localStorage.setItem('access_token', data.access_token);
+      storage.setItem('access_token', data.access_token);
     }
     setUser(data);
     return data;
@@ -39,7 +40,7 @@ export function AuthProvider({ children }) {
     });
     // Update stored token after password change
     if (data.access_token) {
-      localStorage.setItem('access_token', data.access_token);
+      storage.setItem('access_token', data.access_token);
     }
     // Re-fetch user to get updated first_login status
     await checkAuth();
@@ -52,7 +53,7 @@ export function AuthProvider({ children }) {
     } catch {
       // ignore
     }
-    localStorage.removeItem('access_token');
+    storage.removeItem('access_token');
     setUser(false);
   };
 

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import storage from './storage';
 
 const API_BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -10,7 +11,7 @@ const api = axios.create({
 
 // Request interceptor: always attach stored access token as Authorization header
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
+  const token = storage.getItem('access_token');
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`;
   }
@@ -28,11 +29,11 @@ api.interceptors.response.use(
       try {
         const { data } = await axios.post(`${API_BASE}/api/auth/refresh`, {}, { withCredentials: true });
         if (data?.access_token) {
-          localStorage.setItem('access_token', data.access_token);
+          storage.setItem('access_token', data.access_token);
         }
         return api(originalRequest);
       } catch {
-        localStorage.removeItem('access_token');
+        storage.removeItem('access_token');
         return Promise.reject(error);
       }
     }

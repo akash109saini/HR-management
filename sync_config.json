@@ -1,0 +1,17 @@
+{
+    "api_url": "https://hr.dmrhospitals.com/api/realtime-biometric/push",
+    "auth_token": "realtime_t304f_auth_token_2026",
+    "database_type": "mssql",
+    "mssql_server": "192.168.1.95\\SQLEXPRESS",
+    "mssql_database": "Realsoftwebuser",
+    "mssql_user": "sa",
+    "mssql_password": "abc@123",
+    "mssql_driver": "ODBC Driver 17 for SQL Server",
+    "access_db_path": "C:\\Program Files (x86)\\Realtime\\DeviceData.mdb",
+    "table_name": "DeviceLogs",
+    "col_device_sn": "DeviceSrno",
+    "col_employee_code": "EmployeeCode",
+    "col_punch_time": "PunchDateAndTime",
+    "col_direction": "Direction",
+    "col_punch_mode": "PunchMode"
+}

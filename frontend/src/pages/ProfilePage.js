@@ -51,7 +51,7 @@ export default function ProfilePage() {
     { icon: Mail, label: 'Email', value: profile?.email },
     { icon: Phone, label: 'Mobile', value: profile?.mobile },
     { icon: Building, label: 'Department', value: profile?.department },
-    { icon: Briefcase, label: 'Position', value: profile?.position },
+    { icon: Briefcase, label: 'Position', value: profile?.designation || profile?.position },
     { icon: DollarSign, label: 'Salary', value: profile?.salary ? `$${Number(profile.salary).toLocaleString()}` : '-' },
   ];
 
@@ -89,7 +89,7 @@ export default function ProfilePage() {
                   <h2 className="text-xl font-semibold font-['Outfit']">{profile?.name}</h2>
                 )}
                 <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="outline">{profile?.role?.replace('_', ' ')}</Badge>
+                  <Badge variant="outline">{profile?.role_name || profile?.role?.replace('_', ' ')}</Badge>
                   <Badge variant={profile?.status === 'active' ? 'default' : 'secondary'}>{profile?.status}</Badge>
                 </div>
               </div>

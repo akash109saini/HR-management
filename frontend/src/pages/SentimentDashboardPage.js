@@ -72,7 +72,8 @@ function SentimentBar({ counts, total }) {
 
 export default function SentimentDashboardPage() {
   const { user } = useAuth();
-  const isHR = user?.role === 'super_admin' || user?.role === 'hr_manager';
+  const userPermissions = user?.permissions || [];
+  const isHR = user?.role === 'super_admin' || user?.role === 'hr_manager' || userPermissions.some(p => !p.startsWith('self_') && p !== 'announcements');
 
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(false);
