@@ -102,6 +102,7 @@ class AttendanceController extends Controller
             $u = $users->get($record->user_id);
             $arr['user_name'] = $u ? $u->name : null;
             $arr['employee_id_display'] = $u ? $u->employee_id : null;
+            $arr['biometric_pin'] = $u ? $u->biometric_pin : null;
             return $arr;
         });
 

@@ -218,6 +218,11 @@ async def enrich_attendance_records(records: List[Dict[str, Any]]) -> List[Dict[
                 "remaining_buffer": remaining_buffer_str,
                 "status": status,
             }
+            if user:
+                enriched_record["user_name"] = user.get("name")
+                enriched_record["employee_id_display"] = user.get("employee_id")
+                enriched_record["biometric_pin"] = user.get("biometric_pin")
+                
             enriched_list.append(enriched_record)
             
     # Sort back by date descending

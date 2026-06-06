@@ -154,8 +154,11 @@ export default function AttendanceMgmt() {
   };
 
   const filteredAttendance = attendance.filter(a => {
-    const matchesSearch = a.user_name?.toLowerCase().includes(search.toLowerCase()) ||
-      a.user_id?.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = 
+      a.user_name?.toLowerCase().includes(search.toLowerCase()) ||
+      a.user_id?.toLowerCase().includes(search.toLowerCase()) ||
+      a.employee_id_display?.toLowerCase().includes(search.toLowerCase()) ||
+      (a.biometric_pin && String(a.biometric_pin).toLowerCase().includes(search.toLowerCase()));
     const matchesSource = sourceFilter === 'all' || a.source === sourceFilter;
     return matchesSearch && matchesSource;
   });

@@ -50,6 +50,7 @@ export default function AttendanceCalendar({ userRole, employees = [] }) {
   const [month, setMonth]   = useState(now.getMonth() + 1);   // 1-12
   const [year,  setYear]    = useState(now.getFullYear());
   const [empId, setEmpId]   = useState('');
+  const [empSearch, setEmpSearch] = useState('');
   const [data,  setData]    = useState(null);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
@@ -113,24 +114,48 @@ export default function AttendanceCalendar({ userRole, employees = [] }) {
           {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
 
-        {isHR && employees.length > 0 && (
-          <>
-            <span style={{ fontWeight: 600, fontSize: 14, marginRight: 4, color: 'var(--foreground)' }}>Employee</span>
-            <select
-              value={empId}
-              onChange={e => setEmpId(e.target.value)}
-              style={{ ...selectStyle, minWidth: 200 }}
-              id="cal-employee"
-            >
-              <option value="">— Select Employee —</option>
-              {employees.map(emp => (
-                <option key={emp.employee_id || emp.id} value={emp.employee_id || emp.id}>
-                  {emp.name} ({emp.employee_id || emp.id})
-                </option>
-              ))}
-            </select>
-          </>
-        )}
+        {isHR && employees.length > 0 && (() => {
+          const filteredEmployees = employees.filter(emp => {
+            const term = empSearch.toLowerCase();
+            return (
+              emp.name?.toLowerCase().includes(term) ||
+              (emp.employee_id || emp.id)?.toLowerCase().includes(term) ||
+              (emp.biometric_pin && String(emp.biometric_pin).toLowerCase().includes(term))
+            );
+          });
+          return (
+            <>
+              <span style={{ fontWeight: 600, fontSize: 14, marginRight: 4, color: 'var(--foreground)' }}>Search Employee</span>
+              <input
+                type="text"
+                placeholder="Search name, ID or PIN..."
+                value={empSearch}
+                onChange={e => setEmpSearch(e.target.value)}
+                style={{
+                  ...selectStyle,
+                  minWidth: 160,
+                  padding: '6px 10px',
+                }}
+                id="cal-employee-search"
+              />
+
+              <span style={{ fontWeight: 600, fontSize: 14, marginRight: 4, color: 'var(--foreground)' }}>Employee</span>
+              <select
+                value={empId}
+                onChange={e => setEmpId(e.target.value)}
+                style={{ ...selectStyle, minWidth: 200 }}
+                id="cal-employee"
+              >
+                <option value="">— Select Employee —</option>
+                {filteredEmployees.map(emp => (
+                  <option key={emp.employee_id || emp.id} value={emp.employee_id || emp.id}>
+                    {emp.name} ({emp.employee_id || emp.id})
+                  </option>
+                ))}
+              </select>
+            </>
+          );
+        })()}
 
         <button
           onClick={handleGet}
