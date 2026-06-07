@@ -27,20 +27,7 @@ jobs:
           npm install --legacy-peer-deps
           npm run build
 
-      - name: Find subdomain path and deploy
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.HOSTINGER_HOST }}
-          username: ${{ secrets.HOSTINGER_USER }}
-          key: ${{ secrets.HOSTINGER_SSH_KEY }}
-          port: ${{ secrets.HOSTINGER_PORT }}
-          script: |
-            echo "=== Looking for hr subdomain path ==="
-            find . -maxdepth 4 -type d -name "public_html" 2>/dev/null
-            echo "=== Looking for hr directory ==="
-            find . -maxdepth 4 -type d -iname "*hr*" 2>/dev/null
-            echo "=== All domains ==="
-            ls -la domains/ 2>/dev/null || echo "No domains dir"
+
 
       - name: Deploy to Hostinger via SFTP/SSH
         uses: easingthemes/ssh-deploy@v5.1.0
