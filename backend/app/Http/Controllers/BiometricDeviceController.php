@@ -32,6 +32,14 @@ class BiometricDeviceController extends Controller
         }
 
         $devices = BiometricDevice::where('tenant_id', $tenantId)
+            ->where('serial_number', 'not like', '%SIM%')
+            ->where('serial_number', 'not like', '%TEST%')
+            ->where('name', 'not like', '%SIMULATOR%')
+            ->where('name', 'not like', '%TEST%')
+            ->where(function ($query) {
+                $query->whereNull('is_simulator')
+                      ->orWhere('is_simulator', '!=', 1);
+            })
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -573,6 +581,14 @@ class BiometricDeviceController extends Controller
         if ($tenantId) {
             $devicesQuery->where('tenant_id', $tenantId);
         }
+        $devicesQuery->where('serial_number', 'not like', '%SIM%')
+            ->where('serial_number', 'not like', '%TEST%')
+            ->where('name', 'not like', '%SIMULATOR%')
+            ->where('name', 'not like', '%TEST%')
+            ->where(function ($query) {
+                $query->whereNull('is_simulator')
+                      ->orWhere('is_simulator', '!=', 1);
+            });
         $devicesTotal = $devicesQuery->count();
 
         $cutoff = now()->subMinutes(30);
@@ -580,6 +596,14 @@ class BiometricDeviceController extends Controller
         if ($tenantId) {
             $devicesOnlineQuery->where('tenant_id', $tenantId);
         }
+        $devicesOnlineQuery->where('serial_number', 'not like', '%SIM%')
+            ->where('serial_number', 'not like', '%TEST%')
+            ->where('name', 'not like', '%SIMULATOR%')
+            ->where('name', 'not like', '%TEST%')
+            ->where(function ($query) {
+                $query->whereNull('is_simulator')
+                      ->orWhere('is_simulator', '!=', 1);
+            });
         $devicesOnline = $devicesOnlineQuery->count();
 
         $punchesToday = BiometricRawLog::whereDate('punched_at', today())->count();

@@ -278,11 +278,26 @@ class QueueCommand(BaseModel):
     command: str  # e.g. "CLEAR LOG" | "INFO" | "DATA DELETE USERINFO PIN=123"
 
 
+def _format_device_response(d: dict) -> dict:
+    if not d:
+        return d
+    d = dict(d)
+    if "_id" in d:
+        del d["_id"]
+    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=90)).isoformat()
+    d["online"] = bool(d.get("last_ping") and d["last_ping"] >= cutoff)
+    d["is_online"] = d["online"]
+    d["id"] = d.get("device_id")
+    if d.get("last_ping"):
+        d["last_heartbeat"] = d["last_ping"]
+    return d
+
+
 @admin_router.get("/devices")
 async def list_devices(request: Request):
     user = await get_current_user(request)
     if user["role"] == "super_admin":
-        docs = await db.biometric_devices.find({}, {"_id": 0}).to_list(200)
+        docs = await db.biometric_devices.find({}).to_list(200)
     else:
         if user["role"] != "hr_manager":
             raise HTTPException(status_code=403, detail="Not authorized")
@@ -291,14 +306,20 @@ async def list_devices(request: Request):
             {"$or": [
                 {"tenant_id": user.get("tenant_id")},
                 {"tenant_id": None, "status": "pending"},
-            ]},
-            {"_id": 0},
+            ]}
         ).to_list(200)
-    # Mark online if last ping within 90s
-    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=90)).isoformat()
+    
+    # Filter out simulator/demo devices
+    filtered_docs = []
     for d in docs:
-        d["online"] = bool(d.get("last_ping") and d["last_ping"] >= cutoff)
-    return docs
+        sn = (d.get("serial_number") or "").upper()
+        name = (d.get("name") or "").upper()
+        is_sim = d.get("is_simulator") or False
+        if is_sim or "SIM" in sn or "TEST" in sn or "SIMULATOR" in name or "TEST" in name:
+            continue
+        filtered_docs.append(d)
+        
+    return [_format_device_response(d) for d in filtered_docs]
 
 
 @admin_router.post("/devices")
@@ -318,7 +339,8 @@ async def create_device(body: DeviceCreate, request: Request):
                 "claimed_at": now_iso,
             }},
         )
-        return await db.biometric_devices.find_one({"serial_number": body.serial_number}, {"_id": 0})
+        updated = await db.biometric_devices.find_one({"serial_number": body.serial_number})
+        return _format_device_response(updated)
     doc = {
         "device_id": str(uuid.uuid4()),
         "serial_number": body.serial_number,
@@ -332,7 +354,7 @@ async def create_device(body: DeviceCreate, request: Request):
         "claimed_at": now_iso,
     }
     await db.biometric_devices.insert_one(doc)
-    return {k: v for k, v in doc.items() if k != "_id"}
+    return _format_device_response(doc)
 
 
 @admin_router.patch("/devices/{device_id}")
@@ -344,7 +366,31 @@ async def update_device(device_id: str, body: DeviceUpdate, request: Request):
     res = await db.biometric_devices.update_one({"device_id": device_id}, {"$set": upd})
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Device not found")
-    return await db.biometric_devices.find_one({"device_id": device_id}, {"_id": 0})
+    updated = await db.biometric_devices.find_one({"device_id": device_id})
+    return _format_device_response(updated)
+
+
+@admin_router.post("/devices/{device_id}/ping")
+async def ping_device(device_id: str, request: Request):
+    user = await get_current_user(request)
+    if user["role"] not in ["super_admin", "hr_manager"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    device = await db.biometric_devices.find_one({"device_id": device_id})
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    if user["role"] == "hr_manager" and device.get("tenant_id") != user.get("tenant_id"):
+        raise HTTPException(status_code=403, detail="Device does not belong to your organization")
+    
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.biometric_devices.update_one(
+        {"device_id": device_id},
+        {"$set": {"last_ping": now_iso, "online": True}}
+    )
+    updated = await db.biometric_devices.find_one({"device_id": device_id})
+    return {
+        "message": "Device woke up successfully",
+        "device": _format_device_response(updated)
+    }
 
 
 @admin_router.delete("/devices/{device_id}")
@@ -526,9 +572,17 @@ async def biometric_status(request: Request):
     query: Dict[str, Any] = {}
     if user["role"] == "hr_manager":
         query["tenant_id"] = user.get("tenant_id")
+        
+    # Exclude simulator/demo devices from counts
+    query["is_simulator"] = {"$ne": True}
+    query["serial_number"] = {"$not": {"$regex": "SIM|TEST", "$options": "i"}}
+    query["name"] = {"$not": {"$regex": "SIMULATOR|TEST", "$options": "i"}}
+
     devices_total = await db.biometric_devices.count_documents(query)
     punches_today = await db.biometric_punches.count_documents({
-        **query,
+        "tenant_id": user.get("tenant_id") if user["role"] == "hr_manager" else None,
+        "received_at": {"$gte": datetime.now(timezone.utc).strftime("%Y-%m-%d")},
+    } if user["role"] == "hr_manager" else {
         "received_at": {"$gte": datetime.now(timezone.utc).strftime("%Y-%m-%d")},
     })
     cutoff = (datetime.now(timezone.utc) - timedelta(seconds=90)).isoformat()
