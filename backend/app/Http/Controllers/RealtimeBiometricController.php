@@ -105,7 +105,7 @@ class RealtimeBiometricController extends Controller
             // Extract keys dynamically
             $deviceSn = $item['SerialNo'] ?? $item['DeviceSrno'] ?? $item['DeviceNo'] ?? $item['DevicesId'] ?? $item['DeviceID'] ?? $item['device_id'] ?? $item['SN'] ?? null;
             $userPin = trim($item['EmployeeCode'] ?? $item['EnrollmentId'] ?? $item['BiometricID'] ?? $item['UserID'] ?? $item['user_id'] ?? $item['pin'] ?? '');
-            $logTime = $item['PunchDateAndTime'] ?? $item['LogDateTime'] ?? $item['LogTime'] ?? $item['time'] ?? $item['timestamp'] ?? null;
+            $logTime = $item['SystemDate'] ?? $item['PunchDateAndTime'] ?? $item['LogDateTime'] ?? $item['LogTime'] ?? $item['time'] ?? $item['timestamp'] ?? null;
             $verifyModeRaw = $item['PunchMode'] ?? $item['VerifyMode'] ?? $item['mode'] ?? 'unknown';
             $statusRaw = $item['Direction'] ?? $item['Status'] ?? $item['status'] ?? 'check_in';
 
@@ -251,37 +251,45 @@ class RealtimeBiometricController extends Controller
                     'device_sn' => $deviceSn,
                     'total_hours' => 0,
                 ]);
-            } elseif (!$attendance->clock_in) {
-                $attendance->update([
-                    'clock_in' => $punchTime,
-                    'source' => 'biometric',
-                    'device_sn' => $deviceSn,
-                ]);
+            } else {
+                if (!$attendance->clock_in) {
+                    $attendance->update([
+                        'clock_in' => $punchTime,
+                        'source' => 'biometric',
+                        'device_sn' => $deviceSn,
+                    ]);
+                } else {
+                    $existingClockIn = Carbon::parse($attendance->clock_in);
+                    if ($punchedAt->lessThan($existingClockIn)) {
+                        // Move old clock_in to clock_out if clock_out is empty
+                        $newClockOut = $attendance->clock_out;
+                        if (!$newClockOut) {
+                            $newClockOut = $attendance->clock_in;
+                        }
+                        $attendance->update([
+                            'clock_in' => $punchTime,
+                            'clock_out' => $newClockOut,
+                        ]);
+                    } else {
+                        // Incoming check-in is later than existing clock_in. In auto-mode, this is a clock_out!
+                        if (!$attendance->clock_out) {
+                            $attendance->update([
+                                'clock_out' => $punchTime,
+                            ]);
+                        } else {
+                            $existingClockOut = Carbon::parse($attendance->clock_out);
+                            if ($punchedAt->greaterThan($existingClockOut)) {
+                                $attendance->update([
+                                    'clock_out' => $punchTime,
+                                ]);
+                            }
+                        }
+                    }
+                }
             }
         } elseif ($punchStatus === 1) {
             // CHECK-OUT
-            if ($attendance && $attendance->clock_in && !$attendance->clock_out) {
-                $clockIn = Carbon::parse($attendance->clock_in);
-                $totalHours = abs(round($punchedAt->diffInSeconds($clockIn) / 3600, 2));
-                $attendance->update([
-                    'clock_out' => $punchTime,
-                    'total_hours' => $totalHours,
-                    'source' => 'biometric',
-                    'device_sn' => $deviceSn,
-                ]);
-            } elseif ($attendance && $attendance->clock_out) {
-                // Already clocked out — update if this is a later punch
-                $existingClockOut = Carbon::parse($attendance->clock_out);
-                if ($punchedAt->greaterThan($existingClockOut)) {
-                    $clockIn = Carbon::parse($attendance->clock_in);
-                    $totalHours = abs(round($punchedAt->diffInSeconds($clockIn) / 3600, 2));
-                    $attendance->update([
-                        'clock_out' => $punchTime,
-                        'total_hours' => $totalHours,
-                    ]);
-                }
-            } elseif (!$attendance) {
-                // Check-out without check-in
+            if (!$attendance) {
                 Attendance::create([
                     'user_id' => $user->id,
                     'date' => $punchDate,
@@ -291,6 +299,39 @@ class RealtimeBiometricController extends Controller
                     'device_sn' => $deviceSn,
                     'total_hours' => 0,
                 ]);
+            } else {
+                if (!$attendance->clock_out) {
+                    $attendance->update([
+                        'clock_out' => $punchTime,
+                        'source' => 'biometric',
+                        'device_sn' => $deviceSn,
+                    ]);
+                } else {
+                    $existingClockOut = Carbon::parse($attendance->clock_out);
+                    if ($punchedAt->greaterThan($existingClockOut)) {
+                        $attendance->update([
+                            'clock_out' => $punchTime,
+                        ]);
+                    }
+                }
+
+                // If clock_in is present and clock_out is earlier than clock_in, swap them
+                if ($attendance->clock_in) {
+                    $existingClockIn = Carbon::parse($attendance->clock_in);
+                    $existingClockOut = Carbon::parse($attendance->clock_out);
+                    if ($existingClockOut->lessThan($existingClockIn)) {
+                        $attendance->update([
+                            'clock_in' => $attendance->clock_out,
+                            'clock_out' => $attendance->clock_in,
+                        ]);
+                    }
+                } else {
+                    // No clock_in yet, set it as clock_in for now
+                    $attendance->update([
+                        'clock_in' => $punchTime,
+                        'clock_out' => null,
+                    ]);
+                }
             }
         } else {
             // Break or OT or other
@@ -303,6 +344,19 @@ class RealtimeBiometricController extends Controller
                     'source' => 'biometric',
                     'device_sn' => $deviceSn,
                     'total_hours' => 0,
+                ]);
+            }
+        }
+
+        // Recalculate total hours if both clock_in and clock_out are set
+        if ($attendance) {
+            $attendance = $attendance->fresh();
+            if ($attendance->clock_in && $attendance->clock_out) {
+                $clockIn = Carbon::parse($attendance->clock_in);
+                $clockOut = Carbon::parse($attendance->clock_out);
+                $totalHours = abs(round($clockOut->diffInSeconds($clockIn) / 3600, 2));
+                $attendance->update([
+                    'total_hours' => $totalHours,
                 ]);
             }
         }

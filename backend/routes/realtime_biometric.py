@@ -152,6 +152,7 @@ async def receive_punches(request: Request):
             ""
         ).strip()
         log_time = (
+            item.get("SystemDate") or
             item.get("PunchDateAndTime") or
             item.get("LogDateTime") or 
             item.get("LogTime") or 
@@ -212,26 +213,90 @@ async def receive_punches(request: Request):
         # Synchronize into attendance logs if employee is matched
         if employee:
             date_str = log_time[:10]  # Expects YYYY-MM-DD
-            base_attendance = {
-                "id": str(uuid.uuid4()),
-                "tenant_id": tenant_id,
-                "user_id": employee["employee_id"],
-                "user_name": employee.get("name"),
-                "date": date_str,
-            }
-            field = "clock_in" if status == "check_in" else "clock_out"
-            await db.attendance.update_one(
-                {"user_id": employee["employee_id"], "date": date_str},
-                {
-                    "$setOnInsert": base_attendance,
-                    "$set": {
-                        field: log_time,
-                        "source": "biometric",
-                        "device_sn": device_sn,
-                        "status": "present"
-                    }
-                },
-                upsert=True
-            )
+            
+            # Find existing attendance record
+            att = await db.attendance.find_one({"user_id": employee["employee_id"], "date": date_str})
+            if not att:
+                # Create new attendance record
+                att_id = str(uuid.uuid4())
+                await db.attendance.insert_one({
+                    "id": att_id,
+                    "tenant_id": tenant_id,
+                    "user_id": employee["employee_id"],
+                    "user_name": employee.get("name"),
+                    "date": date_str,
+                    "clock_in": log_time if status == "check_in" else None,
+                    "clock_out": log_time if status == "check_out" else None,
+                    "source": "biometric",
+                    "device_sn": device_sn,
+                    "status": "present",
+                    "total_hours": 0
+                })
+            else:
+                clock_in = att.get("clock_in")
+                clock_out = att.get("clock_out")
+                
+                updates = {}
+                try:
+                    def parse_dt(dt_str):
+                        if not dt_str:
+                            return None
+                        clean = dt_str.replace('T', ' ').split('.')[0].split('+')[0].split('Z')[0]
+                        return datetime.strptime(clean, "%Y-%m-%d %H:%M:%S")
+
+                    log_dt = parse_dt(log_time)
+                    
+                    if status == "check_in":
+                        if not clock_in:
+                            updates["clock_in"] = log_time
+                        else:
+                            in_dt = parse_dt(clock_in)
+                            if log_dt < in_dt:
+                                new_out = clock_out
+                                if not new_out or in_dt > parse_dt(new_out):
+                                    new_out = clock_in
+                                updates["clock_in"] = log_time
+                                updates["clock_out"] = new_out
+                            else:
+                                if not clock_out or log_dt > parse_dt(clock_out):
+                                    updates["clock_out"] = log_time
+                    else:  # check_out
+                        if not clock_out:
+                            updates["clock_out"] = log_time
+                        else:
+                            out_dt = parse_dt(clock_out)
+                            if log_dt > out_dt:
+                                updates["clock_out"] = log_time
+                                
+                        # Check swapping
+                        if clock_in:
+                            in_dt = parse_dt(clock_in)
+                            cur_out = updates.get("clock_out", clock_out)
+                            if cur_out and parse_dt(cur_out) < in_dt:
+                                updates["clock_in"] = cur_out
+                                updates["clock_out"] = clock_in
+                        else:
+                            updates["clock_in"] = log_time
+                            updates["clock_out"] = None
+                            
+                    if updates:
+                        await db.attendance.update_one(
+                            {"id": att["id"]},
+                            {"$set": updates}
+                        )
+                        
+                        # Recalculate total hours
+                        updated_att = await db.attendance.find_one({"id": att["id"]})
+                        up_in = parse_dt(updated_att.get("clock_in"))
+                        up_out = parse_dt(updated_att.get("clock_out"))
+                        if up_in and up_out:
+                            diff_secs = abs((up_out - up_in).total_seconds())
+                            total_hours = round(diff_secs / 3600.0, 2)
+                            await db.attendance.update_one(
+                                {"id": att["id"]},
+                                {"$set": {"total_hours": total_hours}}
+                            )
+                except Exception as e:
+                    logger.error(f"Error updating python attendance times: {e}")
 
     return {"status": "success", "processed_records": inserted_count}
