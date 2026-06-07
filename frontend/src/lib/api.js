@@ -1,7 +1,9 @@
 import axios from 'axios';
 import storage from './storage';
 
-const API_BASE = process.env.REACT_APP_BACKEND_URL;
+const API_BASE = (process.env.REACT_APP_BACKEND_URL && process.env.REACT_APP_BACKEND_URL !== 'undefined')
+  ? process.env.REACT_APP_BACKEND_URL
+  : (typeof window !== 'undefined' ? window.location.origin : '');
 
 const api = axios.create({
   baseURL: `${API_BASE}/api`,
