@@ -26,17 +26,15 @@ jobs:
           cd frontend
           npm install --legacy-peer-deps
           npm run build
+      - name: Zip Build Files
+        run: |
+          cd frontend/build
+          zip -r ../../build.zip .
 
-
-
-      - name: Deploy to Hostinger via SFTP/SSH
-        uses: easingthemes/ssh-deploy@v5.1.0
-        with:
-          SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
-          ARGS: "-rlgoDzvc --delete"
-          SOURCE: "frontend/build/"
-          REMOTE_HOST: ${{ secrets.HOSTINGER_HOST }}
-          REMOTE_USER: ${{ secrets.HOSTINGER_USER }}
-          REMOTE_PORT: ${{ secrets.HOSTINGER_PORT }}
-          TARGET: "public_html/hr/"
+      - name: Deploy Frontend via HTTPS
+        run: |
+          curl -f -X POST \
+            -H "X-Deploy-Token: dmr_bh_deploy_token_2026_x87a912bf" \
+            -F "file=@build.zip" \
+            https://hr.dmrhospitals.com/deploy.php
 
