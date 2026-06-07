@@ -1,9 +1,21 @@
 import axios from 'axios';
 import storage from './storage';
 
-const API_BASE = (process.env.REACT_APP_BACKEND_URL && process.env.REACT_APP_BACKEND_URL !== 'undefined')
-  ? process.env.REACT_APP_BACKEND_URL
-  : (typeof window !== 'undefined' ? window.location.origin : '');
+const getApiBase = () => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    // On live production servers (not localhost), always talk to the hosting origin
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return window.location.origin;
+    }
+  }
+  // Fallback to environment variable for local development
+  return (process.env.REACT_APP_BACKEND_URL && process.env.REACT_APP_BACKEND_URL !== 'undefined')
+    ? process.env.REACT_APP_BACKEND_URL
+    : '';
+};
+
+const API_BASE = getApiBase();
 
 const api = axios.create({
   baseURL: `${API_BASE}/api`,
