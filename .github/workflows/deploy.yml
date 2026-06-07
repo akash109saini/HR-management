@@ -33,7 +33,7 @@ jobs:
 
       - name: Deploy Frontend via HTTPS
         run: |
-          curl -f -X POST \
+          curl -i -X POST \
             -H "X-Deploy-Token: dmr_bh_deploy_token_2026_x87a912bf" \
             -F "file=@build.zip" \
             https://hr.dmrhospitals.com/deploy.php
