@@ -812,6 +812,10 @@ class AttendanceController extends Controller
 
         $query = \App\Models\BiometricRawLog::query();
 
+        if ($month = $request->query('month')) {
+            $query->where('punched_at', 'like', "{$month}%");
+        }
+
         if ($role === 'employee') {
             $dbUser = User::find($user['id']);
             if (!$dbUser || !$dbUser->biometric_pin) {

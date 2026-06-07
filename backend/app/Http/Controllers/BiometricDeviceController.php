@@ -104,6 +104,34 @@ class BiometricDeviceController extends Controller
     }
 
     /**
+     * Wake up (ping) a device by updating its heartbeat.
+     */
+    public function ping(Request $request, string $id)
+    {
+        $user = $request->auth_user;
+        if (!in_array($user['role'], ['super_admin', 'hr_manager'])) {
+            return response()->json(['detail' => 'Not authorized'], 403);
+        }
+
+        $device = BiometricDevice::find($id);
+        if (!$device) {
+            return response()->json(['detail' => 'Device not found'], 404);
+        }
+
+        $tenantId = $this->resolveTenantConnection($request, $user);
+        if ($tenantId && $device->tenant_id !== $tenantId) {
+            return response()->json(['detail' => 'Device does not belong to your organization'], 403);
+        }
+
+        $device->update(['last_heartbeat' => now()]);
+
+        return response()->json([
+            'message' => 'Device woke up successfully',
+            'device' => $device->fresh(),
+        ]);
+    }
+
+    /**
      * Delete a biometric device.
      */
     public function destroy(Request $request, string $id)

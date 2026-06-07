@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../lib/api';
 import DashboardLayout from '../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Fingerprint, MonitorSmartphone, Clock, LogIn, LogOut, Search, Wifi, WifiOff, ScanFace } from 'lucide-react';
+import { Fingerprint, MonitorSmartphone, Clock, LogIn, LogOut, Search, Wifi, WifiOff, ScanFace, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const VERIFY_ICONS = {
   face: <ScanFace size={14} className="inline mr-1 text-violet-500" />,
@@ -66,25 +66,58 @@ function formatReceived(ts) {
   } catch { return '—'; }
 }
 
+const MONTH_NAMES = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December'
+];
+
+const selectSt = {
+  padding: '6px 10px',
+  borderRadius: 7,
+  fontSize: 13,
+  border: '1.5px solid #d1d5db',
+  background: 'var(--background, #fff)',
+  color: 'var(--foreground)',
+  outline: 'none',
+  cursor: 'pointer',
+};
+
 export default function MyPunchLog() {
+  const now = new Date();
+  const [calMonth, setCalMonth] = useState(now.getMonth() + 1); // 1-12
+  const [calYear, setCalYear] = useState(now.getFullYear());
   const [punches, setPunches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState('');
 
-  const fetchPunches = () => {
-    api.get('/attendance/punches')
+  const fetchPunches = useCallback((month, year) => {
+    setLoading(true);
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+    api.get(`/attendance/punches?month=${monthStr}`)
       .then(r => setPunches(r.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
-  };
+  }, []);
 
   useEffect(() => {
-    fetchPunches();
+    fetchPunches(calMonth, calYear);
     // Auto-refresh every 30 seconds so new device punches appear immediately
-    const interval = setInterval(fetchPunches, 30000);
+    const interval = setInterval(() => fetchPunches(calMonth, calYear), 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [calMonth, calYear, fetchPunches]);
+
+  const goMonth = (delta) => {
+    let m = calMonth + delta;
+    let y = calYear;
+    if (m < 1)  { m = 12; y -= 1; }
+    if (m > 12) { m = 1;  y += 1; }
+    setCalMonth(m);
+    setCalYear(y);
+  };
+
+  const yearOptions = [];
+  for (let y = now.getFullYear() - 3; y <= now.getFullYear() + 1; y++) yearOptions.push(y);
 
   const filtered = punches.filter(p => {
     const q = search.toLowerCase();
@@ -104,7 +137,6 @@ export default function MyPunchLog() {
   const matched = punches.filter(p => p.matched).length;
   const devices = [...new Set(punches.map(p => p.device_sn).filter(Boolean))];
 
-
   return (
     <DashboardLayout>
       <div className="space-y-6" data-testid="my-punch-log-page">
@@ -121,6 +153,67 @@ export default function MyPunchLog() {
             All biometric punch records from your registered devices
           </p>
         </div>
+
+        {/* Month Filter Card */}
+        <Card className="border border-border">
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Prev month */}
+              <button
+                onClick={() => goMonth(-1)}
+                style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #d1d5db', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                title="Previous Month"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              {/* Month selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs sm:text-sm font-semibold text-foreground">Month</span>
+                <select
+                  value={calMonth}
+                  onChange={e => setCalMonth(Number(e.target.value))}
+                  style={selectSt}
+                >
+                  {MONTH_NAMES.map((mn, i) => <option key={mn} value={i + 1}>{mn}</option>)}
+                </select>
+              </div>
+
+              {/* Year selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs sm:text-sm font-semibold text-foreground">Year</span>
+                <select
+                  value={calYear}
+                  onChange={e => setCalYear(Number(e.target.value))}
+                  style={selectSt}
+                >
+                  {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+
+              {/* Next month */}
+              <button
+                onClick={() => goMonth(1)}
+                style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #d1d5db', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                title="Next Month"
+              >
+                <ChevronRight size={16} />
+              </button>
+
+              {/* Today's Month shortcut */}
+              <button
+                onClick={() => { setCalMonth(now.getMonth() + 1); setCalYear(now.getFullYear()); }}
+                style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: '1.5px solid #d1d5db', background: 'transparent', cursor: 'pointer', color: 'var(--foreground)' }}
+              >
+                Today's Month
+              </button>
+
+              <span className="ml-auto text-base font-bold text-primary font-['Outfit']">
+                {MONTH_NAMES[calMonth - 1]} {calYear}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

@@ -118,6 +118,15 @@ export default function AttendanceMgmt() {
     } catch { /* ignore */ }
   };
 
+  const handleWakeUpDevice = async (id) => {
+    try {
+      await api.post(`/biometric/devices/${id}/ping`);
+      fetchDevices();
+    } catch {
+      alert('Failed to wake up device');
+    }
+  };
+
   const handleSync = async () => {
     setSyncing(true);
     try {
@@ -549,6 +558,17 @@ export default function AttendanceMgmt() {
                       <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleToggleDevice(device)}>
                         {device.status === 'active' ? 'Deactivate' : 'Activate'}
                       </Button>
+                      {!device.is_online && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="text-xs h-7 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-950/30 gap-1"
+                          onClick={() => handleWakeUpDevice(device.id)}
+                          data-testid={`wake-up-device-${device.id}`}
+                        >
+                          <Zap size={12} /> Wake Up
+                        </Button>
+                      )}
                       <Button size="sm" variant="outline" className="text-xs h-7 text-destructive" onClick={() => handleDeleteDevice(device.id)}>
                         <Trash2 size={12} />
                       </Button>

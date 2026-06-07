@@ -205,6 +205,36 @@ class TestBiometricAdmin:
             d2 = requests.delete(f"{BASE_URL}/api/biometric/devices/{device_id}", headers=H(hr_token), timeout=20)
             assert d2.status_code in (200, 204), f"{d2.status_code}: {d2.text}"
 
+    def test_ping_device(self, hr_token):
+        sn = "TEST-SN-PING-001"
+        r = requests.post(
+            f"{BASE_URL}/api/biometric/devices",
+            headers=H(hr_token),
+            json={"serial_number": sn, "name": "TEST Ping Device"},
+            timeout=20,
+        )
+        assert r.status_code in (200, 201), f"{r.status_code}: {r.text}"
+        d = r.json()
+        device_id = d.get("id") or d.get("_id") or d.get("device_id")
+        assert device_id is not None
+
+        # Ping the device to wake it up
+        r_ping = requests.post(
+            f"{BASE_URL}/api/biometric/devices/{device_id}/ping",
+            headers=H(hr_token),
+            timeout=20,
+        )
+        assert r_ping.status_code == 200, f"{r_ping.status_code}: {r_ping.text}"
+        data = r_ping.json()
+        assert "message" in data
+        assert data["message"] == "Device woke up successfully"
+        assert data["device"]["is_online"] is True
+
+        # Clean up
+        d_del = requests.delete(f"{BASE_URL}/api/biometric/devices/{device_id}", headers=H(hr_token), timeout=20)
+        assert d_del.status_code in (200, 204), f"{d_del.status_code}: {d_del.text}"
+
+
 
 # ---------- Attrition ----------
 class TestAttrition:

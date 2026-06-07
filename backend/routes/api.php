@@ -220,6 +220,7 @@ Route::middleware('jwt.auth')->group(function () {
         Route::get('/devices', [BiometricDeviceController::class, 'index']);
         Route::post('/devices', [BiometricDeviceController::class, 'store']);
         Route::put('/devices/{id}', [BiometricDeviceController::class, 'update']);
+        Route::post('/devices/{id}/ping', [BiometricDeviceController::class, 'ping']);
         Route::delete('/devices/{id}', [BiometricDeviceController::class, 'destroy']);
         Route::get('/raw-logs', [BiometricDeviceController::class, 'rawLogs']);
         Route::post('/sync', [BiometricDeviceController::class, 'syncLogs']);
