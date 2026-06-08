@@ -36,9 +36,6 @@ export default function AttendanceMgmt() {
   const [simulating, setSimulating] = useState(false);
   const [simHistory, setSimHistory] = useState([]);
 
-  // Diagnostic error modal state
-  const [errorModal, setErrorModal] = useState({ show: false, title: '', message: '', reasons: [] });
-
   const fetchData = async () => {
     try {
       const [attRes, corrRes] = await Promise.all([
@@ -125,19 +122,8 @@ export default function AttendanceMgmt() {
     try {
       await api.post(`/biometric/devices/${id}/ping`);
       fetchDevices();
-    } catch (err) {
-      const msg = err.response?.data?.detail || err.response?.data?.message || 'Device unreachable';
-      setErrorModal({
-        show: true,
-        title: 'Biometric Device Connection Failed',
-        message: `Failed to wake up device: ${msg}`,
-        reasons: [
-          'The physical biometric device is powered OFF or disconnected from the LAN network.',
-          'The Cloud Server setting on the device is incorrect or does not point to "hr.dmrhospitals.com".',
-          'The local synchronization service (sync_direct_pyzk.py or sync_local_biometric.py) is not running on the local PC.',
-          'The local SQL Server database (192.168.1.95\\SQLEXPRESS) or the direct biometric IP (192.168.1.224) is offline or unreachable.'
-        ]
-      });
+    } catch {
+      alert('Failed to wake up device');
     }
   };
 
@@ -206,14 +192,7 @@ export default function AttendanceMgmt() {
     );
   };
 
-  const originalDevices = devices.filter(device => {
-    const sn = (device.serial_number || '').toUpperCase();
-    const name = (device.name || '').toUpperCase();
-    const isSim = device.is_simulator;
-    return !isSim && !sn.includes('SIM') && !sn.includes('TEST') && !name.includes('SIMULATOR') && !name.includes('TEST');
-  });
-
-  const onlineDevices = originalDevices.filter(d => d.is_online).length;
+  const onlineDevices = devices.filter(d => d.is_online).length;
   const unsyncedLogs = rawLogs.filter(l => !l.synced).length;
 
   return (
@@ -234,7 +213,7 @@ export default function AttendanceMgmt() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Devices Online</p>
-                  <p className="text-lg font-bold">{onlineDevices}/{originalDevices.length}</p>
+                  <p className="text-lg font-bold">{onlineDevices}/{devices.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -296,9 +275,9 @@ export default function AttendanceMgmt() {
             </TabsTrigger>
             <TabsTrigger value="devices" data-testid="tab-devices">
               Biometric Devices
-              {originalDevices.length > 0 && (
+              {devices.length > 0 && (
                 <span className="ml-2 px-1.5 py-0.5 text-xs bg-emerald-600 text-white rounded-full">
-                  {originalDevices.length}
+                  {devices.length}
                 </span>
               )}
             </TabsTrigger>
@@ -531,7 +510,7 @@ export default function AttendanceMgmt() {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {originalDevices.length === 0 ? (
+              {devices.length === 0 ? (
                 <Card className="col-span-full border border-dashed border-border">
                   <CardContent className="p-8 text-center">
                     <Smartphone size={40} className="mx-auto text-muted-foreground mb-3 opacity-40" />
@@ -539,7 +518,7 @@ export default function AttendanceMgmt() {
                     <p className="text-xs text-muted-foreground mt-1">Click "Add Device" to register your ESSL Aiface Mars</p>
                   </CardContent>
                 </Card>
-              ) : originalDevices.map((device) => (
+              ) : devices.map((device) => (
                 <Card key={device.id} className={`border ${device.is_online ? 'border-emerald-200' : 'border-border'} transition-all hover:shadow-md`}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
@@ -628,7 +607,7 @@ export default function AttendanceMgmt() {
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
-                {originalDevices.length === 0 ? (
+                {devices.length === 0 ? (
                   <div className="p-6 text-center bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200">
                     <p className="text-sm text-amber-700 font-medium">⚠️ No devices registered</p>
                     <p className="text-xs text-amber-600 mt-1">Go to the "Biometric Devices" tab and register a device first (use any serial number like "SIM-001")</p>
@@ -646,7 +625,7 @@ export default function AttendanceMgmt() {
                         <Select value={simForm.device_sn} onValueChange={v => setSimForm({...simForm, device_sn: v})}>
                           <SelectTrigger><SelectValue placeholder="Choose device" /></SelectTrigger>
                           <SelectContent>
-                            {originalDevices.filter(d => d.status === 'active').map(d => (
+                            {devices.filter(d => d.status === 'active').map(d => (
                               <SelectItem key={d.id} value={d.serial_number}>
                                 {d.name} ({d.serial_number})
                               </SelectItem>
@@ -851,42 +830,6 @@ export default function AttendanceMgmt() {
           </TabsContent>
         </Tabs>
       </div>
-      {errorModal.show && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <Card className="w-full max-w-lg shadow-2xl border border-border bg-background animate-in fade-in zoom-in duration-200">
-            <CardHeader className="space-y-1">
-              <div className="flex items-center gap-2 text-destructive">
-                <WifiOff size={24} />
-                <CardTitle className="text-xl">{errorModal.title}</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-3 rounded-lg border border-red-200 dark:border-red-900/50">
-                {errorModal.message}
-              </p>
-              
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-foreground">Possible reasons for connection failure:</h4>
-                <ul className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
-                  {errorModal.reasons.map((r, idx) => (
-                    <li key={idx} className="leading-normal">{r}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="bg-amber-50 dark:bg-amber-950/20 p-3 rounded-lg border border-amber-200 dark:border-amber-900/50 text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                <strong>How to resolve:</strong> Check if the local biometric device is turned on, has the correct internet settings matching the Device Setup Guide, and make sure your local sync service is active.
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <Button variant="outline" onClick={() => setErrorModal({ ...errorModal, show: false })}>
-                  Dismiss
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </DashboardLayout>
   );
 }
