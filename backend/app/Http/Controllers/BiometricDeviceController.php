@@ -498,7 +498,7 @@ class BiometricDeviceController extends Controller
         }
 
         $limit = $request->query('limit', 1000);
-        $logs = $query->orderBy('punched_at', 'desc')->limit($limit)->get();
+        $logs = $query->orderBy('punched_at', 'asc')->limit($limit)->get();
 
         $pins = $logs->pluck('user_pin')->unique();
         $employees = User::whereIn('biometric_pin', $pins)->get()->keyBy('biometric_pin');
@@ -510,21 +510,37 @@ class BiometricDeviceController extends Controller
                 $source = 'simulator';
             }
             return [
-                'punch_id' => $log->id,
-                'device_sn' => $log->device_sn,
-                'device_name' => "Realtime Device " . $log->device_sn,
-                'user_pin' => $log->user_pin,
-                'employee_id' => $emp ? $emp->employee_id : null,
+                'punch_id'      => $log->id,
+                'device_sn'     => $log->device_sn,
+                'device_name'   => "Realtime Device " . $log->device_sn,
+                'user_pin'      => $log->user_pin,
+                'employee_id'   => $emp ? $emp->employee_id : null,
                 'employee_name' => $emp ? $emp->name : null,
-                'timestamp' => $log->punched_at->toIso8601String(),
-                'status' => strtolower(str_replace('-', '_', $log->punch_status_label)),
-                'verify_mode' => $log->verify_mode_label,
-                'source' => $source,
-                'matched' => (bool)$emp,
+                'timestamp'     => $log->punched_at->toIso8601String(),
+                'status'        => strtolower(str_replace('-', '_', $log->punch_status_label)),
+                'verify_mode'   => $log->verify_mode_label,
+                'source'        => $source,
+                'matched'       => (bool)$emp,
             ];
         });
 
-        return response()->json($enriched);
+        // ── DEDUPLICATION ──────────────────────────────────────────────────────────
+        // The device pushes its buffer repeatedly, so the same physical punch can
+        // appear multiple times with timestamps 1-5 seconds apart.
+        // Keep only the FIRST punch per user_pin per 60-second window (oldest = real).
+        $lastSeenTs = [];     // [user_pin => unix timestamp of last kept punch]
+        $deduped = $enriched->filter(function ($p) use (&$lastSeenTs) {
+            $pin = $p['user_pin'];
+            $ts  = $p['timestamp'] ? strtotime($p['timestamp']) : 0;
+            if (!isset($lastSeenTs[$pin]) || ($ts - $lastSeenTs[$pin]) > 60) {
+                $lastSeenTs[$pin] = $ts;
+                return true;   // keep – it is a fresh punch event
+            }
+            return false;      // drop – within 60 s of previous punch for same pin
+        });
+        // ──────────────────────────────────────────────────────────────────────────
+
+        return response()->json($deduped->sortByDesc('timestamp')->values());
     }
 
     /**

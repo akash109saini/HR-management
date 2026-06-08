@@ -855,7 +855,7 @@ class AttendanceController extends Controller
             return response()->json(['detail' => 'Not authorized'], 403);
         }
 
-        $logs = $query->orderBy('punched_at', 'desc')->limit(1000)->get();
+        $logs = $query->orderBy('punched_at', 'asc')->limit(1000)->get();
 
         $mapped = $logs->map(function ($log) {
             $status = 'check_in';
@@ -885,22 +885,37 @@ class AttendanceController extends Controller
             $emp = User::where('biometric_pin', $log->user_pin)->first();
 
             return [
-                'punch_id' => $log->id,
-                'device_sn' => $log->device_sn,
-                'device_name' => "Realtime Device " . $log->device_sn,
-                'user_pin' => $log->user_pin,
-                'employee_id' => $emp ? $emp->employee_id : null,
+                'punch_id'      => $log->id,
+                'device_sn'     => $log->device_sn,
+                'device_name'   => "Realtime Device " . $log->device_sn,
+                'user_pin'      => $log->user_pin,
+                'employee_id'   => $emp ? $emp->employee_id : null,
                 'employee_name' => $emp ? $emp->name : null,
-                'timestamp' => $log->punched_at ? $log->punched_at->format('Y-m-d H:i:s') : null,
-                'status' => $status,
-                'verify_mode' => $verifyMode,
-                'source' => 'realtime_push',
-                'matched' => (bool)$emp,
-                'received_at' => $log->created_at ? $log->created_at->toIso8601String() : null,
+                'timestamp'     => $log->punched_at ? $log->punched_at->format('Y-m-d H:i:s') : null,
+                'status'        => $status,
+                'verify_mode'   => $verifyMode,
+                'source'        => 'realtime_push',
+                'matched'       => (bool)$emp,
+                'received_at'   => $log->created_at ? $log->created_at->toIso8601String() : null,
             ];
         });
 
-        return response()->json($mapped);
+        // ── DEDUPLICATION ──────────────────────────────────────────────────────────
+        // Keep only the FIRST punch per user_pin per 60-second window.
+        // Logs were fetched ASC so the first in each cluster is the real punch time.
+        $lastSeenTs = [];
+        $deduped = $mapped->filter(function ($p) use (&$lastSeenTs) {
+            $pin = $p['user_pin'];
+            $ts  = $p['timestamp'] ? strtotime(str_replace(' ', 'T', $p['timestamp'])) : 0;
+            if (!isset($lastSeenTs[$pin]) || ($ts - $lastSeenTs[$pin]) > 60) {
+                $lastSeenTs[$pin] = $ts;
+                return true;
+            }
+            return false;
+        });
+        // ──────────────────────────────────────────────────────────────────────────
+
+        return response()->json($deduped->sortByDesc('timestamp')->values());
     }
 }
 

@@ -181,6 +181,24 @@ class RealtimeBiometricController extends Controller
             try {
                 $punchedAt = Carbon::parse($logTime, 'Asia/Kolkata');
 
+                // ── DUPLICATE GUARD ───────────────────────────────────────────────────
+                // The Api_Realtime.com exporter re-sends its whole buffer on every poll
+                // cycle (every few seconds). We skip any punch that is within 60 seconds
+                // of an existing punch for the same user + device combination.
+                $isDuplicate = BiometricRawLog::where('device_sn', $deviceSn)
+                    ->where('user_pin', $userPin)
+                    ->whereBetween('punched_at', [
+                        $punchedAt->copy()->subSeconds(60),
+                        $punchedAt->copy()->addSeconds(60),
+                    ])
+                    ->exists();
+
+                if ($isDuplicate) {
+                    Log::debug("RealtimeBiometric: Skipping duplicate punch user_pin={$userPin} device={$deviceSn} at {$punchedAt}");
+                    continue;
+                }
+                // ─────────────────────────────────────────────────────────────────────
+
                 // Create raw log
                 $rawLog = BiometricRawLog::create([
                     'device_sn' => $deviceSn,
