@@ -60,6 +60,10 @@ async def _resolve_employee(user_pin: str, tenant_id: Optional[str]) -> Optional
             {"employee_id": normalized_pin},
         ])
 
+    # Handle leading zeros in biometric_pin (e.g. database has '00000002' but user_pin is '2')
+    if user_pin.isdigit():
+        or_conditions.append({"biometric_pin": {"$regex": f"^0*{normalized_pin}$"}})
+
     query: Dict[str, Any] = {"$or": or_conditions}
     if tenant_id:
         query["tenant_id"] = tenant_id
@@ -365,6 +369,8 @@ async def list_punches(
     status: Optional[str] = None,
     source: Optional[str] = None,
     date: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
 ):
     user = await get_current_user(request)
     query: Dict[str, Any] = {}
@@ -383,6 +389,14 @@ async def list_punches(
         query["source"] = source
     if date:
         query["timestamp"] = {"$regex": f"^{date}"}
+    elif start_date or end_date:
+        ts_query = {}
+        if start_date:
+            ts_query["$gte"] = f"{start_date} 00:00:00"
+        if end_date:
+            ts_query["$lte"] = f"{end_date} 23:59:59"
+        query["timestamp"] = ts_query
+
     if search:
         query["$or"] = [
             {"employee_name": {"$regex": search, "$options": "i"}},
@@ -391,6 +405,45 @@ async def list_punches(
         ]
 
     docs = await db.biometric_punches.find(query, {"_id": 0}).sort("timestamp", -1).limit(limit).to_list(limit)
+
+    # Dynamically resolve unmatched/unmapped punches on-the-fly (self-healing data)
+    for doc in docs:
+        if not doc.get("matched") or not doc.get("employee_name"):
+            employee = await _resolve_employee(doc.get("user_pin"), doc.get("tenant_id"))
+            if employee:
+                doc["employee_id"] = employee.get("employee_id")
+                doc["employee_name"] = employee.get("name")
+                doc["matched"] = True
+                
+                # Update biometric_punches document in database so it remains matched
+                await db.biometric_punches.update_one(
+                    {"punch_id": doc.get("punch_id")},
+                    {"$set": {
+                        "employee_id": employee.get("employee_id"),
+                        "employee_name": employee.get("name"),
+                        "matched": True
+                    }}
+                )
+                
+                # Sync to attendance collection if it is a check_in or check_out
+                punch_status = doc.get("status")
+                if punch_status in ("check_in", "check_out"):
+                    date_str = doc["timestamp"][:10]
+                    base_on_insert = {
+                        "id": str(uuid.uuid4()),
+                        "tenant_id": doc.get("tenant_id"),
+                        "user_id": employee["employee_id"],
+                        "user_name": employee.get("name"),
+                        "date": date_str,
+                    }
+                    field = "clock_in" if punch_status == "check_in" else "clock_out"
+                    await db.attendance.update_one(
+                        {"user_id": employee["employee_id"], "date": date_str},
+                        {"$setOnInsert": base_on_insert,
+                         "$set": {field: doc["timestamp"], "source": "biometric", "device_sn": doc.get("device_sn"), "status": "present"}},
+                        upsert=True,
+                    )
+
     return docs
 
 

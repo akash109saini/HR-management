@@ -73,7 +73,8 @@ export default function PunchLogMgmt() {
 
   // Filters State
   const [search, setSearch] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [deviceFilter, setDeviceFilter] = useState('all');
   const [directionFilter, setDirectionFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
@@ -95,8 +96,11 @@ export default function PunchLogMgmt() {
       if (sourceFilter && sourceFilter !== 'all') {
         queryStr += `&source=${sourceFilter}`;
       }
-      if (dateFilter) {
-        queryStr += `&date=${dateFilter}`;
+      if (startDate) {
+        queryStr += `&start_date=${startDate}`;
+      }
+      if (endDate) {
+        queryStr += `&end_date=${endDate}`;
       }
       if (search.trim()) {
         queryStr += `&search=${encodeURIComponent(search.trim())}`;
@@ -109,7 +113,7 @@ export default function PunchLogMgmt() {
     } finally {
       setLoading(false);
     }
-  }, [search, dateFilter, deviceFilter, directionFilter, sourceFilter]);
+  }, [search, startDate, endDate, deviceFilter, directionFilter, sourceFilter]);
 
   useEffect(() => {
     fetchPunches();
@@ -120,7 +124,8 @@ export default function PunchLogMgmt() {
 
   const handleClearFilters = () => {
     setSearch('');
-    setDateFilter('');
+    setStartDate('');
+    setEndDate('');
     setDeviceFilter('all');
     setDirectionFilter('all');
     setSourceFilter('all');
@@ -245,7 +250,7 @@ export default function PunchLogMgmt() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               {/* Employee Search */}
               <div className="space-y-1.5 col-span-1 sm:col-span-2 md:col-span-1 lg:col-span-1">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Search Employee</label>
@@ -260,13 +265,24 @@ export default function PunchLogMgmt() {
                 </div>
               </div>
 
-              {/* Date Filter */}
+              {/* From Date */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date Selector</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">From Date</label>
                 <input
                   type="date"
-                  value={dateFilter}
-                  onChange={e => setDateFilter(e.target.value)}
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  className="w-full h-9 text-sm border border-input rounded-md px-3 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              {/* To Date */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">To Date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
                   className="w-full h-9 text-sm border border-input rounded-md px-3 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
@@ -323,7 +339,7 @@ export default function PunchLogMgmt() {
                     </SelectContent>
                   </Select>
 
-                  {(search || dateFilter || deviceFilter !== 'all' || directionFilter !== 'all' || sourceFilter !== 'all') && (
+                  {(search || startDate || endDate || deviceFilter !== 'all' || directionFilter !== 'all' || sourceFilter !== 'all') && (
                     <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-xs h-9 text-muted-foreground hover:text-foreground">
                       Reset
                     </Button>
