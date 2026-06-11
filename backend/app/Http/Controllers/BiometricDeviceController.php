@@ -474,6 +474,14 @@ class BiometricDeviceController extends Controller
             $query->whereDate('punched_at', $date);
         }
 
+        if ($startDate = $request->query('start_date')) {
+            $query->whereDate('punched_at', '>=', $startDate);
+        }
+
+        if ($endDate = $request->query('end_date')) {
+            $query->whereDate('punched_at', '<=', $endDate);
+        }
+
         if ($search = $request->query('search')) {
             $matchingPins = User::where('name', 'LIKE', "%{$search}%")
                 ->orWhere('employee_id', 'LIKE', "%{$search}%")
@@ -493,10 +501,38 @@ class BiometricDeviceController extends Controller
         $logs = $query->orderBy('punched_at', 'asc')->limit($limit)->get();
 
         $pins = $logs->pluck('user_pin')->unique();
-        $employees = User::whereIn('biometric_pin', $pins)->get()->keyBy('biometric_pin');
+        $normalizedPins = $pins->map(function ($pin) {
+            return ltrim($pin, '0') === '' ? '0' : ltrim($pin, '0');
+        })->unique();
+
+        // Get all matching employees from the database (handling leading zeros)
+        $employees = User::where(function ($q) use ($pins, $normalizedPins) {
+            $q->whereIn('biometric_pin', $pins);
+            foreach ($normalizedPins as $np) {
+                $q->orWhereRaw("TRIM(LEADING '0' FROM biometric_pin) = ?", [$np]);
+            }
+        })->get();
 
         $enriched = $logs->map(function ($log) use ($employees) {
-            $emp = $employees->get($log->user_pin);
+            $userPin = $log->user_pin;
+            $normalizedPin = ltrim($userPin, '0') === '' ? '0' : ltrim($userPin, '0');
+
+            // Find matching employee by exact pin or normalized pin
+            $emp = $employees->first(function ($e) use ($userPin, $normalizedPin) {
+                $eBioPin = $e->biometric_pin;
+                $eBioPinNorm = ltrim($eBioPin, '0') === '' ? '0' : ltrim($eBioPin, '0');
+                return $eBioPin === $userPin || $eBioPinNorm === $normalizedPin;
+            });
+
+            // Self-healing: if an employee matches but the log is not synced yet, sync it
+            if ($emp && !$log->synced) {
+                try {
+                    $this->syncSingleLog($log);
+                } catch (\Exception $e) {
+                    Log::error("Failed to retroactively sync log {$log->id}: " . $e->getMessage());
+                }
+            }
+
             $source = 'device_push';
             if ($log->raw_line && strpos($log->raw_line, '[SIMULATED]') !== false) {
                 $source = 'simulator';

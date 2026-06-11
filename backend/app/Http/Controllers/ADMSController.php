@@ -170,8 +170,21 @@ class ADMSController extends Controller
      */
     private function syncLogToAttendance(BiometricRawLog $log, string $deviceSn): void
     {
-        // Find employee by biometric PIN
-        $user = User::where('biometric_pin', $log->user_pin)->first();
+        $userPin = $log->user_pin;
+        $normalizedPin = ltrim($userPin, '0');
+        if ($normalizedPin === '') {
+            $normalizedPin = '0';
+        }
+
+        // Find employee by biometric PIN or normalized PIN
+        $user = User::where(function ($query) use ($userPin, $normalizedPin) {
+            $query->where('biometric_pin', $userPin)
+                  ->orWhere('biometric_pin', $normalizedPin)
+                  ->orWhere('employee_id', $userPin)
+                  ->orWhere('employee_id', $normalizedPin)
+                  ->orWhereRaw("TRIM(LEADING '0' FROM biometric_pin) = ?", [$normalizedPin])
+                  ->orWhereRaw("TRIM(LEADING '0' FROM employee_id) = ?", [$normalizedPin]);
+        })->first();
 
         if (!$user) {
             $log->update([
