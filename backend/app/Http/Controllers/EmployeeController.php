@@ -329,8 +329,10 @@ class EmployeeController extends Controller
         if (!isset($headerMap['mobile'])) $missingHeaders[] = 'Mobile';
 
         if (count($missingHeaders) > 0) {
+            $count = count($missingHeaders);
+            $cols = implode(', ', $missingHeaders);
             return response()->json([
-                'detail' => 'Missing required column headers: ' . implode(', ', $missingHeaders) . '. Ensure your sheet has column names like Name, Email, and Mobile.'
+                'detail' => "Missing {$count} required column(s): {$cols}. Ensure your sheet contains the headers: Name, Email, and Mobile."
             ], 400);
         }
 

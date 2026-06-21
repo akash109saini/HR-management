@@ -165,13 +165,34 @@ export default function EmployeeManagement() {
       fetchEmployees();
     } catch (err) {
       const data = err.response?.data;
-      if (data?.errors && Array.isArray(data.errors)) {
-        setBulkErrors(data.errors);
-      } else if (data?.detail) {
-        setBulkErrors([data.detail]);
-      } else {
-        setBulkErrors(['An error occurred during upload. Please try again.']);
+      const status = err.response?.status;
+      const statusText = err.response?.statusText || '';
+      
+      let parsedErrors = [];
+      
+      if (data) {
+        if (data.errors) {
+          if (Array.isArray(data.errors)) {
+            parsedErrors = data.errors;
+          } else if (typeof data.errors === 'object') {
+            parsedErrors = Object.values(data.errors).flat();
+          }
+        } else if (data.detail) {
+          parsedErrors = [data.detail];
+        } else if (data.message) {
+          parsedErrors = [data.message];
+        }
       }
+      
+      if (parsedErrors.length === 0) {
+        if (status) {
+          parsedErrors = [`Server returned error code ${status} (${statusText || 'Error'}). Please verify the spreadsheet structure.`];
+        } else {
+          parsedErrors = [err.message || 'An error occurred during upload. Please check your network connection and try again.'];
+        }
+      }
+      
+      setBulkErrors(parsedErrors);
     } finally {
       setBulkLoading(false);
     }
