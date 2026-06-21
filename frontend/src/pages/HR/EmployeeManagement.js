@@ -9,7 +9,7 @@ import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Plus, Search, UserPlus, FileDown, Edit, Eye, Power } from 'lucide-react';
+import { Plus, Search, UserPlus, FileDown, Edit, Eye, Power, Upload } from 'lucide-react';
 
 const getLeaveKey = (name) => {
   if (!name) return '';
@@ -29,6 +29,11 @@ export default function EmployeeManagement() {
   const [showCreate, setShowCreate] = useState(false);
   const [editEmployee, setEditEmployee] = useState(null);
   const [viewEmployee, setViewEmployee] = useState(null);
+  const [showBulk, setShowBulk] = useState(false);
+  const [bulkFile, setBulkFile] = useState(null);
+  const [bulkErrors, setBulkErrors] = useState([]);
+  const [bulkSuccess, setBulkSuccess] = useState('');
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   // Filters state
   const [search, setSearch] = useState('');
@@ -103,6 +108,50 @@ export default function EmployeeManagement() {
       fetchEmployees();
     } catch (err) {
       setError(formatApiError(err.response?.data?.detail));
+    }
+  };
+
+  const resetBulkState = () => {
+    setBulkFile(null);
+    setBulkErrors([]);
+    setBulkSuccess('');
+    setBulkLoading(false);
+    const fileInput = document.getElementById('bulk-file-input');
+    if (fileInput) fileInput.value = '';
+  };
+
+  const handleBulkUpload = async () => {
+    if (!bulkFile) {
+      setBulkErrors(['Please select a CSV file first.']);
+      return;
+    }
+    setBulkLoading(true);
+    setBulkErrors([]);
+    setBulkSuccess('');
+
+    const formData = new FormData();
+    formData.append('file', bulkFile);
+
+    try {
+      const res = await api.post('/employees/bulk-upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setBulkSuccess(res.data.message || 'Employees uploaded successfully!');
+      setBulkFile(null);
+      const fileInput = document.getElementById('bulk-file-input');
+      if (fileInput) fileInput.value = '';
+      fetchEmployees();
+    } catch (err) {
+      const data = err.response?.data;
+      if (data?.errors && Array.isArray(data.errors)) {
+        setBulkErrors(data.errors);
+      } else if (data?.detail) {
+        setBulkErrors([data.detail]);
+      } else {
+        setBulkErrors(['An error occurred during upload. Please try again.']);
+      }
+    } finally {
+      setBulkLoading(false);
     }
   };
 
@@ -288,6 +337,84 @@ export default function EmployeeManagement() {
             }}>
               <FileDown size={16} className="mr-2" />Export
             </Button>
+            
+            <Dialog open={showBulk} onOpenChange={(open) => { setShowBulk(open); if (!open) resetBulkState(); }}>
+              <DialogTrigger asChild>
+                <Button variant="outline"><Upload size={16} className="mr-2" />Bulk Upload</Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-bold">Bulk Upload Employees</DialogTitle>
+                </DialogHeader>
+                
+                <div className="space-y-4 py-2">
+                  <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
+                    <p className="font-semibold mb-1">CSV File Requirements:</p>
+                    <ul className="list-disc pl-5 space-y-1 text-xs">
+                      <li>Required columns: <strong>Name</strong>, <strong>Email</strong>, <strong>Mobile</strong>.</li>
+                      <li>Optional columns: <strong>Joining Date</strong> (YYYY-MM-DD), <strong>Department</strong>, <strong>Designation</strong>, <strong>Shift</strong>, <strong>Salary</strong>, <strong>Biometric PIN</strong>, <strong>Bank Name</strong>, <strong>Account Number</strong>, <strong>IFSC Code</strong>, <strong>Account Holder</strong>.</li>
+                      <li>Headers are case-insensitive and support spaces or underscores (e.g. "Full Name" or "name").</li>
+                      <li><strong>Transactional Validation:</strong> If any row contains errors (such as duplicate email or biometric PIN), the entire file will be rejected to prevent partial uploads.</li>
+                    </ul>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bulk-file-input" className="text-sm font-medium">Select CSV File</Label>
+                    <Input 
+                      id="bulk-file-input" 
+                      type="file" 
+                      accept=".csv,text/csv" 
+                      onChange={(e) => {
+                        setBulkFile(e.target.files?.[0] || null);
+                        setBulkErrors([]);
+                        setBulkSuccess('');
+                      }} 
+                    />
+                  </div>
+
+                  {bulkErrors.length > 0 && (
+                    <div className="p-4 bg-destructive/10 text-destructive rounded-lg border border-destructive/20 max-h-48 overflow-y-auto">
+                      <p className="font-semibold text-sm mb-2">Upload Rejected - Errors Found:</p>
+                      <ul className="list-disc pl-5 text-xs space-y-1">
+                        {bulkErrors.map((err, i) => (
+                          <li key={i} className="font-mono">{err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {bulkSuccess && (
+                    <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg border border-emerald-200 dark:border-emerald-800 text-sm font-medium">
+                      {bulkSuccess}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-2 border-t border-border pt-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowBulk(false)} 
+                      disabled={bulkLoading}
+                    >
+                      Close
+                    </Button>
+                    <Button 
+                      onClick={handleBulkUpload} 
+                      disabled={bulkLoading || !bulkFile}
+                    >
+                      {bulkLoading ? (
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full" />
+                          Uploading...
+                        </div>
+                      ) : (
+                        'Upload Employees'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
             <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) { setError(''); setSuccess(''); } }}>
               <DialogTrigger asChild>
                 <Button><UserPlus size={16} className="mr-2" />Add Employee</Button>

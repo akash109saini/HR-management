@@ -74,6 +74,7 @@ Route::middleware('jwt.auth')->group(function () {
     // Employees
     Route::get('/employees', [EmployeeController::class, 'index']);
     Route::post('/employees', [EmployeeController::class, 'store']);
+    Route::post('/employees/bulk-upload', [EmployeeController::class, 'bulkUpload']);
     Route::get('/employees/suggest-id', [EmployeeController::class, 'suggestId']);
     Route::get('/employees/{employeeId}', [EmployeeController::class, 'show']);
     Route::put('/employees/{employeeId}', [EmployeeController::class, 'update']);
