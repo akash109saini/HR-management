@@ -229,19 +229,63 @@ class EmployeeController extends Controller
         }
 
         $request->validate([
-            'file' => 'required|file|mimes:csv,txt|max:4096',
+            'file' => 'required|file|max:8192',
         ]);
 
         $file = $request->file('file');
-        $handle = fopen($file->getRealPath(), 'r');
-        if (!$handle) {
-            return response()->json(['detail' => 'Failed to open uploaded file'], 400);
+        $extension = strtolower($file->getClientOriginalExtension());
+        $filePath = $file->getRealPath();
+
+        $rows = [];
+
+        if (in_array($extension, ['xlsx', 'xls'])) {
+            try {
+                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePath);
+                $worksheet = $spreadsheet->getActiveSheet();
+                $sheetRows = $worksheet->toArray(null, true, true, true);
+                
+                // Reformat sheet rows from alphabet indices to numeric indices
+                foreach ($sheetRows as $sheetRow) {
+                    $rows[] = array_values($sheetRow);
+                }
+            } catch (\Exception $e) {
+                return response()->json(['detail' => 'Failed to parse Excel file: ' . $e->getMessage()], 400);
+            }
+        } else {
+            // Treat as CSV or delimited text file (including .dxf, .txt, .csv)
+            $handle = fopen($filePath, 'r');
+            if (!$handle) {
+                return response()->json(['detail' => 'Failed to open uploaded file'], 400);
+            }
+            
+            // Try to auto-detect delimiter (comma, semicolon, or tab)
+            $firstLine = fgets($handle);
+            rewind($handle);
+            $delimiter = ',';
+            if ($firstLine !== false) {
+                $commaCount = substr_count($firstLine, ',');
+                $semicolonCount = substr_count($firstLine, ';');
+                $tabCount = substr_count($firstLine, "\t");
+                if ($semicolonCount > $commaCount && $semicolonCount > $tabCount) {
+                    $delimiter = ';';
+                } elseif ($tabCount > $commaCount && $tabCount > $semicolonCount) {
+                    $delimiter = "\t";
+                }
+            }
+
+            while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
+                $rows[] = $row;
+            }
+            fclose($handle);
         }
 
-        $headers = fgetcsv($handle);
-        if (!$headers) {
-            fclose($handle);
+        if (count($rows) === 0) {
             return response()->json(['detail' => 'The uploaded file is empty'], 400);
+        }
+
+        $headers = array_shift($rows);
+        if (!$headers) {
+            return response()->json(['detail' => 'The uploaded file does not have column headers'], 400);
         }
 
         // Clean headers and build a mapping to indices
@@ -285,9 +329,8 @@ class EmployeeController extends Controller
         if (!isset($headerMap['mobile'])) $missingHeaders[] = 'Mobile';
 
         if (count($missingHeaders) > 0) {
-            fclose($handle);
             return response()->json([
-                'detail' => 'Missing required column headers: ' . implode(', ', $missingHeaders) . '. Ensure your CSV has column names like Name, Email, and Mobile.'
+                'detail' => 'Missing required column headers: ' . implode(', ', $missingHeaders) . '. Ensure your sheet has column names like Name, Email, and Mobile.'
             ], 400);
         }
 
@@ -306,7 +349,7 @@ class EmployeeController extends Controller
             $defaultBalances = ['casual leave' => 12, 'sick leave' => 10, 'earned leave' => 15];
         }
 
-        while (($row = fgetcsv($handle)) !== false) {
+        foreach ($rows as $row) {
             $rowNum++;
             
             // Skip empty rows
@@ -417,8 +460,6 @@ class EmployeeController extends Controller
                 ];
             }
         }
-
-        fclose($handle);
 
         // Reject the whole sheet if there are any errors
         if (count($errors) > 0) {

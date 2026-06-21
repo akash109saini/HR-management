@@ -120,6 +120,28 @@ export default function EmployeeManagement() {
     if (fileInput) fileInput.value = '';
   };
 
+  const downloadTemplate = () => {
+    const headers = [
+      'Name', 'Email', 'Mobile', 'Joining Date', 'Department', 'Designation', 
+      'Shift', 'Salary', 'Biometric PIN', 'Bank Name', 'Account Number', 
+      'IFSC Code', 'Account Holder'
+    ];
+    const sampleRow = [
+      'John Smith', 'john.smith@company.com', '9876543210', '2026-06-22', 'I.T.', 'Developer',
+      'Day', '600000', '1001', 'State Bank of India', '1234567890', 'SBIN0001234', 'John Smith'
+    ];
+    const csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'employee_upload_template.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleBulkUpload = async () => {
     if (!bulkFile) {
       setBulkErrors(['Please select a CSV file first.']);
@@ -349,21 +371,27 @@ export default function EmployeeManagement() {
                 
                 <div className="space-y-4 py-2">
                   <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
-                    <p className="font-semibold mb-1">CSV File Requirements:</p>
+                    <p className="font-semibold mb-1">Sheet Format Guidelines:</p>
                     <ul className="list-disc pl-5 space-y-1 text-xs">
+                      <li>Supported formats: <strong>Excel (.xlsx, .xls)</strong>, <strong>CSV (.csv)</strong>, <strong>delimited text (.txt, .dxf)</strong>.</li>
                       <li>Required columns: <strong>Name</strong>, <strong>Email</strong>, <strong>Mobile</strong>.</li>
                       <li>Optional columns: <strong>Joining Date</strong> (YYYY-MM-DD), <strong>Department</strong>, <strong>Designation</strong>, <strong>Shift</strong>, <strong>Salary</strong>, <strong>Biometric PIN</strong>, <strong>Bank Name</strong>, <strong>Account Number</strong>, <strong>IFSC Code</strong>, <strong>Account Holder</strong>.</li>
                       <li>Headers are case-insensitive and support spaces or underscores (e.g. "Full Name" or "name").</li>
-                      <li><strong>Transactional Validation:</strong> If any row contains errors (such as duplicate email or biometric PIN), the entire file will be rejected to prevent partial uploads.</li>
+                      <li><strong>All-or-Nothing Validation:</strong> If any row has errors (such as duplicate email or biometric PIN), the entire file will be rejected to prevent partial uploads.</li>
                     </ul>
+                    <div className="mt-3">
+                      <Button variant="secondary" size="sm" onClick={downloadTemplate} className="text-xs h-7">
+                        <FileDown size={12} className="mr-1.5" /> Download Sample CSV Template
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="bulk-file-input" className="text-sm font-medium">Select CSV File</Label>
+                    <Label htmlFor="bulk-file-input" className="text-sm font-medium">Select Spreadsheet File</Label>
                     <Input 
                       id="bulk-file-input" 
                       type="file" 
-                      accept=".csv,text/csv" 
+                      accept=".csv,text/csv,.xlsx,.xls,.txt,.dxf" 
                       onChange={(e) => {
                         setBulkFile(e.target.files?.[0] || null);
                         setBulkErrors([]);
